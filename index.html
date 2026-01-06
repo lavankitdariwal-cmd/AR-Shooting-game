@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,9 +15,15 @@
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    <!-- Critical fix for MediaPipe Emscripten error -->
+    <!-- Critical fix for MediaPipe Emscripten/WASM error -->
     <script>
         window.arguments = [];
+        window.Module = {
+            arguments: [],
+            print: console.log,
+            printErr: console.error,
+            locateFile: (path) => path
+        };
     </script>
     
     <!-- MediaPipe Hands -->
@@ -155,7 +162,7 @@
             animation: screen-flicker 0.4s ease-out forwards;
         }
 
-        /* Edge glow animation - Subtler, slower, and better blended */
+        /* Edge glow animation */
         .edge-glow {
             position: relative;
             overflow: hidden;
@@ -165,7 +172,6 @@
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
             border: 1px solid transparent;
-            /* Faded linear gradient to blend better */
             background: linear-gradient(90deg, 
                 transparent 0%, 
                 rgba(255,255,255,0.02) 20%, 
@@ -176,10 +182,10 @@
             -webkit-mask-composite: destination-out;
             mask-composite: exclude;
             background-size: 200% 100%;
-            animation: move-glow 8s linear infinite; /* Reduced speed */
+            animation: move-glow 8s linear infinite;
             pointer-events: none;
             z-index: 100;
-            filter: blur(2px); /* Blend effect */
+            filter: blur(2px);
         }
 
         @keyframes move-glow {

@@ -1,20 +1,27 @@
 
 export class SoundSynth {
-  private ctx: AudioContext;
-  private masterGain: GainNode;
+  private ctx: AudioContext | null = null;
+  private masterGain: GainNode | null = null;
   private menuAudio: HTMLAudioElement | null = null;
   private gameAudio: HTMLAudioElement | null = null;
   private isUnlocked: boolean = false;
 
   constructor() {
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 0.3;
-    this.masterGain.connect(this.ctx.destination);
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        this.ctx = new AudioContextClass();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.3;
+        this.masterGain.connect(this.ctx.destination);
+      }
+    } catch (e) {
+      console.warn("AudioContext initialization failed:", e);
+    }
   }
 
   public resume() {
-    if (this.ctx.state === 'suspended') {
+    if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(err => console.error("Could not resume AudioContext", err));
     }
     this.isUnlocked = true;
@@ -24,11 +31,15 @@ export class SoundSynth {
     const audio = new Audio(url);
     audio.loop = true;
     audio.crossOrigin = "anonymous";
-    try {
-      const source = this.ctx.createMediaElementSource(audio);
-      source.connect(this.masterGain);
-    } catch (e) {
-      console.warn("BGM routing failed (CORS), playing via direct output.", e);
+    
+    // Only attempt to create media element source if context is valid
+    if (this.ctx && this.masterGain) {
+      try {
+        const source = this.ctx.createMediaElementSource(audio);
+        source.connect(this.masterGain);
+      } catch (e) {
+        console.warn("BGM routing failed (CORS or already connected), playing via direct output.", e);
+      }
     }
     return audio;
   }
@@ -77,6 +88,7 @@ export class SoundSynth {
   }
 
   playClick() {
+    if (!this.ctx || !this.masterGain) return;
     this.resume();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -92,6 +104,7 @@ export class SoundSynth {
   }
 
   playHover() {
+    if (!this.ctx || !this.masterGain) return;
     this.resume();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -107,6 +120,7 @@ export class SoundSynth {
   }
 
   playMenuMove() {
+    if (!this.ctx || !this.masterGain) return;
     this.resume();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -122,6 +136,7 @@ export class SoundSynth {
   }
 
   playLaser() {
+    if (!this.ctx || !this.masterGain) return;
     this.resume();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -137,6 +152,7 @@ export class SoundSynth {
   }
 
   playHit() {
+    if (!this.ctx || !this.masterGain) return;
     this.resume();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -152,6 +168,7 @@ export class SoundSynth {
   }
 
   playExplosion() {
+    if (!this.ctx || !this.masterGain) return;
     this.resume();
     const bufferSize = this.ctx.sampleRate * 0.5;
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
@@ -174,6 +191,7 @@ export class SoundSynth {
   }
 
   playStart() {
+    if (!this.ctx || !this.masterGain) return;
     this.resume();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
