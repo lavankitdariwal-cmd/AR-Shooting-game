@@ -1,0 +1,7 @@
+{
+  "name": "Arbor Recon AR",
+  "description": "An augmented reality shooter game set in a beautiful forest clearing. Aim with your index finger and pinch to secure the path.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
