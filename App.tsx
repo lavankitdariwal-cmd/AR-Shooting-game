@@ -175,6 +175,7 @@ const App: React.FC = () => {
   const synthRef = useRef<SoundSynth | null>(null);
   
   const gameStateRef = useRef(gameState);
+  const prevGameStateRef = useRef(gameState);
   const shootStyleRef = useRef(shootStyle);
   const handClickEnabledRef = useRef(handClickEnabled);
   const bgmEnabledRef = useRef(bgmEnabled);
@@ -187,11 +188,13 @@ const App: React.FC = () => {
 
   const handleActionRef = useRef<any>(null);
 
+  // Initialization: Load music and setup global click for audio unlock
   useEffect(() => {
     if (!synthRef.current) {
       synthRef.current = new SoundSynth();
       const menuMusicUrl = 'https://res.cloudinary.com/dumwsdo42/video/upload/v1767713278/Gaming_Excitement_Music_iz5rm3.mp3';
       const gameMusicUrl = 'https://res.cloudinary.com/dumwsdo42/video/upload/v1767714453/Game_Battle_Music_Soundtrack_sounat.mp3';
+      
       Promise.all([
         synthRef.current.loadMenuBGM(menuMusicUrl),
         synthRef.current.loadGameBGM(gameMusicUrl)
@@ -201,6 +204,7 @@ const App: React.FC = () => {
         }
       });
     }
+
     const unlockAudio = () => {
       if (synthRef.current) {
         synthRef.current.resume();
@@ -212,18 +216,35 @@ const App: React.FC = () => {
     };
     window.addEventListener('click', unlockAudio);
     if (!window.isSecureContext && window.location.hostname !== 'localhost') setIsSecure(false);
+    
     return () => {
       synthRef.current?.stopBGM();
       window.removeEventListener('click', unlockAudio);
     };
   }, []);
 
+  // Music state manager: Single source of truth for background music switching
   useEffect(() => {
+    const prev = prevGameStateRef.current;
     gameStateRef.current = gameState;
     bgmEnabledRef.current = bgmEnabled;
-    if (!bgmEnabled) { synthRef.current?.stopBGM(); return; }
-    if (gameState === 'menu' || gameState === 'starting') synthRef.current?.startMenuBGM();
-    else if (gameState === 'playing' || gameState === 'paused' || gameState === 'gameover') synthRef.current?.startBGM();
+    
+    if (!synthRef.current) return;
+
+    if (!bgmEnabled) { 
+        synthRef.current.stopBGM(); 
+        prevGameStateRef.current = gameState;
+        return; 
+    }
+
+    if (gameState === 'menu' || gameState === 'starting') {
+        // Restart only when returning from playing area (any game state)
+        const returnedFromGame = prev !== 'menu' && prev !== 'starting';
+        synthRef.current.startMenuBGM(returnedFromGame);
+    } else {
+        synthRef.current.startBGM();
+    }
+    prevGameStateRef.current = gameState;
   }, [gameState, bgmEnabled]);
 
   useEffect(() => { shootStyleRef.current = shootStyle; }, [shootStyle]);
@@ -397,17 +418,32 @@ const App: React.FC = () => {
       {showTutorial && <TutorialOverlay onClose={(fin) => { if (fin) localStorage.setItem('void_recon_tutorial_v1', 'true'); setShowTutorial(false); }} onNav={() => synthRef.current?.playMenuMove()} />}
       {handCursors.map(cursor => <div key={cursor.id} className={`hand-cursor ${cursor.pinched ? 'pinched' : ''} style-${shootStyle}`} style={{ left: cursor.x + '%', top: cursor.y + '%' }} />)}
       {(gameState === 'playing' || gameState === 'paused') && <Game isActive={gameState === 'playing'} onScore={handleScore} onMiss={handleMiss} onGameOver={() => setGameState('gameover')} externalTriggers={pinchTriggers} difficulty={difficulty} controlMode={controlMode} combo={combo} />}
+      
       <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-8 z-20">
-        {(gameState === 'playing' || gameState === 'paused') && (
-            <div className="flex justify-between items-start">
-                <div className="glass-ui px-4 py-3 md:px-8 md:py-5 min-w-[120px] md:min-w-[180px]">
-                    <div className="text-[8px] md:text-[10px] uppercase text-white/40 mb-1 font-black">Integrity</div>
-                    <div className="text-xl md:text-4xl font-black">{score.toLocaleString()}</div>
-                    {combo > 1 && <div className="text-white/60 text-[8px] md:text-xs font-bold mt-1">x{combo} Combo</div>}
+        {/* Top HUD Section */}
+        <div className="w-full">
+            {(gameState === 'playing' || gameState === 'paused') && (
+                <div className="w-full flex justify-between items-start">
+                    <div className="glass-ui px-4 py-3 md:px-8 md:py-5 min-w-[120px] md:min-w-[180px]">
+                        <div className="text-[8px] md:text-[10px] uppercase text-white/40 mb-1 font-black">Integrity</div>
+                        <div className="text-xl md:text-4xl font-black">{score.toLocaleString()}</div>
+                        {combo > 1 && <div className="text-white/60 text-[8px] md:text-xs font-bold mt-1">x{combo} Combo</div>}
+                    </div>
+                    <div className="flex gap-2 md:gap-4">{[0, 1, 2].map((i) => <div key={i} className={`w-2.5 h-2.5 md:w-4 md:h-4 rounded-none rotate-45 transition-all duration-500 ${i < lives ? 'bg-white shadow-[0_0_15px_white]' : 'bg-white/10 scale-50 opacity-20'}`} />)}</div>
                 </div>
-                <div className="flex gap-2 md:gap-4">{[0, 1, 2].map((i) => <div key={i} className={`w-2.5 h-2.5 md:w-4 md:h-4 rounded-none rotate-45 transition-all duration-500 ${i < lives ? 'bg-white shadow-[0_0_15px_white]' : 'bg-white/10 scale-50 opacity-20'}`} />)}</div>
-            </div>
-        )}
+            )}
+        </div>
+
+        {/* Bottom HUD Section - Moved Instruction here at the bottom */}
+        <div className="w-full flex justify-center mb-10 md:mb-4">
+            {gameState === 'playing' && (
+                <div className="px-6 py-3 bg-black/60 border border-white/10 backdrop-blur-xl rounded-none shadow-[0_0_20px_rgba(255,255,255,0.05)]">
+                    <span className="text-[10px] md:text-xs uppercase text-white/60 font-black animate-pulse tracking-[0.2em]">Open Palm to Pause</span>
+                </div>
+            )}
+        </div>
+
+        {/* Global Screens */}
         {gameState === 'starting' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-[70] backdrop-blur-md p-4">
             <GestureIllustration style={shootStyle} />
@@ -417,6 +453,7 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+
         {gameState === 'menu' && (
           <div className="absolute inset-0 bg-black z-50 pointer-events-auto flex flex-col items-center justify-center p-4 md:p-8 edge-glow">
             <div className="absolute top-4 left-4 md:top-8 md:left-8 flex flex-col items-start gap-1 cursor-pointer group" data-hand-action="visit-linkedin" onClick={() => handleHandUIAction('visit-linkedin')}>
@@ -457,17 +494,20 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+
         {gameState === 'paused' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-[60] pointer-events-auto backdrop-blur-sm p-4 text-center">
             <div className="w-full max-w-xs md:max-w-md">
               <h2 className="text-3xl md:text-6xl font-black mb-6 md:mb-12 uppercase italic">Paused</h2>
               <div className="flex flex-col gap-3 items-center">
                 <button data-hand-action="resume-game" onClick={() => handleHandUIAction('resume-game')} className="w-full py-4 bg-white text-black font-black uppercase text-xs md:text-base">Resume</button>
+                <button data-hand-action="show-tutorial" onClick={() => handleHandUIAction('show-tutorial')} className="w-full py-4 border-2 border-white/20 text-white font-black uppercase text-xs md:text-base">How to Play</button>
                 <button data-hand-action="quit-game" onClick={() => handleHandUIAction('quit-game')} className="w-full py-4 border-2 border-white/10 text-white/40 font-black uppercase text-xs md:text-base">Quit</button>
               </div>
             </div>
           </div>
         )}
+
         {gameState === 'gameover' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/95 z-[250] pointer-events-auto p-4 text-center backdrop-blur-xl">
             <div className="w-full max-w-md glass-ui p-10 edge-glow">

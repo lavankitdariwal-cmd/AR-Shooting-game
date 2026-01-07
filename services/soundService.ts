@@ -4,6 +4,8 @@ export class SoundSynth {
   private masterGain: GainNode | null = null;
   private menuAudio: HTMLAudioElement | null = null;
   private gameAudio: HTMLAudioElement | null = null;
+  private menuUrl: string | null = null;
+  private gameUrl: string | null = null;
   private isUnlocked: boolean = false;
 
   constructor() {
@@ -32,26 +34,29 @@ export class SoundSynth {
     audio.loop = true;
     audio.crossOrigin = "anonymous";
     
-    // Only attempt to create media element source if context is valid
     if (this.ctx && this.masterGain) {
       try {
         const source = this.ctx.createMediaElementSource(audio);
         source.connect(this.masterGain);
       } catch (e) {
-        console.warn("BGM routing failed (CORS or already connected), playing via direct output.", e);
+        console.warn("BGM routing failed (CORS or already connected).", e);
       }
     }
     return audio;
   }
 
   public async loadMenuBGM(url: string) {
+    if (this.menuUrl === url) return true;
     if (this.menuAudio) this.menuAudio.pause();
+    this.menuUrl = url;
     this.menuAudio = this.setupAudioElement(url);
     return this.waitForLoad(this.menuAudio);
   }
 
   public async loadGameBGM(url: string) {
+    if (this.gameUrl === url) return true;
     if (this.gameAudio) this.gameAudio.pause();
+    this.gameUrl = url;
     this.gameAudio = this.setupAudioElement(url);
     return this.waitForLoad(this.gameAudio);
   }
@@ -64,21 +69,34 @@ export class SoundSynth {
     });
   }
 
-  startMenuBGM() {
+  startMenuBGM(shouldRestart: boolean = false) {
     this.resume();
-    if (this.gameAudio) this.gameAudio.pause();
+    // Stop game music completely
+    if (this.gameAudio) {
+      this.gameAudio.pause();
+    }
     if (this.menuAudio) {
+      if (shouldRestart) {
+        this.menuAudio.currentTime = 0;
+      }
       this.menuAudio.volume = 0.5;
-      this.menuAudio.play().catch(e => console.warn("Menu BGM play failed:", e));
+      if (this.menuAudio.paused) {
+        this.menuAudio.play().catch(e => console.warn("Menu BGM play failed:", e));
+      }
     }
   }
 
   startBGM() {
     this.resume();
-    if (this.menuAudio) this.menuAudio.pause();
+    // Stop menu music completely
+    if (this.menuAudio) {
+      this.menuAudio.pause();
+    }
     if (this.gameAudio) {
-      this.gameAudio.volume = 0.8;
-      this.gameAudio.play().catch(e => console.warn("Game BGM play failed:", e));
+      this.gameAudio.volume = 0.7;
+      if (this.gameAudio.paused) {
+        this.gameAudio.play().catch(e => console.warn("Game BGM play failed:", e));
+      }
     }
   }
 
