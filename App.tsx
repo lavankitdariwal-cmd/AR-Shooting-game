@@ -215,6 +215,9 @@ const App: React.FC = () => {
   const palmGestureTimer = useRef<number>(0);
   const lastHoveredElementId = useRef<string | null>(null);
 
+  // Use a stable ref for the handler to avoid restarting the camera when BGM or other state changes
+  const handleActionRef = useRef<any>(null);
+
   useEffect(() => {
     const imagesToPreload = [
       "https://res.cloudinary.com/dumwsdo42/image/upload/v1767719161/Frame_13_nptunk.png",
@@ -369,6 +372,10 @@ const App: React.FC = () => {
     }
   }, [bgmEnabled]);
 
+  useEffect(() => {
+    handleActionRef.current = handleHandUIAction;
+  }, [handleHandUIAction]);
+
   const finishTutorial = (finishedAll: boolean) => {
     if (finishedAll) {
       localStorage.setItem('void_recon_tutorial_v1', 'true');
@@ -381,14 +388,33 @@ const App: React.FC = () => {
     const w = window as any;
     if (!w.Hands || !w.Camera || !videoRef.current) return;
 
+    // Cleanup previous instances if they exist
+    if (cameraUtilRef.current) {
+        try { cameraUtilRef.current.stop(); } catch(e) {}
+        cameraUtilRef.current = null;
+    }
+    if (handsRef.current) {
+        try { handsRef.current.close(); } catch(e) {}
+        handsRef.current = null;
+    }
+
     try {
       setCameraError(null);
       
-      // Pre-flight check for camera permission to avoid silent failures
+      // Pre-flight check for camera permission
+      let preflightStream: MediaStream | null = null;
       try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
+        preflightStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        // Immediately stop tracks to release the hardware for MediaPipe
+        preflightStream.getTracks().forEach(track => track.stop());
       } catch (permissionErr: any) {
-        throw permissionErr; // Bubble up to outer catch for UI handling
+        console.warn("Pre-flight camera failure:", permissionErr);
+        if (permissionErr.name === 'NotAllowedError' || permissionErr.message?.includes('Permission denied')) {
+          setCameraError("Camera Access Denied. Check your browser settings to allow camera access.");
+        } else {
+          setCameraError("Failed to access camera hardware. Ensure it is connected and not in use by another app.");
+        }
+        return;
       }
 
       const hands = new w.Hands({
@@ -472,7 +498,7 @@ const App: React.FC = () => {
             if (isOpenPalm && gameStateRef.current === 'playing') {
                 palmGestureTimer.current += 1;
                 if (palmGestureTimer.current > 18) {
-                    handleHandUIAction('pause-game');
+                    if (handleActionRef.current) handleActionRef.current('pause-game');
                     palmGestureTimer.current = 0;
                 }
             } else {
@@ -516,7 +542,7 @@ const App: React.FC = () => {
                           if (actionJustStarted && handClickEnabledRef.current) {
                               const action = el.getAttribute('data-hand-action');
                               const value = el.getAttribute('data-hand-value');
-                              if (action) handleHandUIAction(action, value || undefined);
+                              if (action && handleActionRef.current) handleActionRef.current(action, value || undefined);
                           }
                           break;
                       }
@@ -538,8 +564,13 @@ const App: React.FC = () => {
 
       const camera = new w.Camera(videoRef.current, {
         onFrame: async () => {
-          if (handsRef.current && videoRef.current) {
-            await handsRef.current.send({ image: videoRef.current });
+          // Important: check if hands instance is still valid and video is actually ready
+          if (handsRef.current && videoRef.current && videoRef.current.readyState >= 2) {
+            try {
+              await handsRef.current.send({ image: videoRef.current });
+            } catch (err) {
+              console.warn("Hand tracking frame processing failed:", err);
+            }
           }
         },
         width: 1280, height: 720
@@ -550,20 +581,20 @@ const App: React.FC = () => {
       setCameraAllowed(true);
     } catch (e: any) {
       console.error("Camera Init Error:", e);
-      if (e.name === 'NotAllowedError' || e.message?.includes('Permission denied')) {
-        setCameraError("Camera Access Denied. Check your browser settings to allow camera access.");
-      } else {
-        setCameraError("Failed to initialize camera. Ensure your device is connected and reload.");
-      }
+      setCameraError("Tracking initialization failed. Please reload the page or check your hardware.");
     }
-  }, [handleHandUIAction]);
+  }, []); // Stable camera init
 
   useEffect(() => {
-    // Slight delay to ensure DOM is ready and browser has initialized media devices list
+    // Slight initial delay to ensure DOM and environment are fully stable
     const timer = setTimeout(() => {
       initCamera();
-    }, 1500);
-    return () => clearTimeout(timer);
+    }, 1000);
+    return () => {
+      clearTimeout(timer);
+      if (cameraUtilRef.current) try { cameraUtilRef.current.stop(); } catch(e) {}
+      if (handsRef.current) try { handsRef.current.close(); } catch(e) {}
+    };
   }, [initCamera]);
 
   const handleScore = useCallback(() => {

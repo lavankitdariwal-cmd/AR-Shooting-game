@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Void Recon</title>
     
-    <!-- Robust CSP for MediaPipe, Web Workers, and WASM -->
+    <!-- Robust CSP for MediaPipe WASM, Web Workers, and Blob URLs -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; child-src blob:; img-src 'self' https: data: blob:;">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -18,23 +18,6 @@
 
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-    <!-- WASM / Emscripten fix MUST be defined before MediaPipe scripts load -->
-    <script>
-        window.arguments = [];
-        window.Module = {
-            arguments: [],
-            print: console.log,
-            printErr: console.error,
-            locateFile: (path) => {
-                if (path.endsWith('.wasm')) {
-                    // Force absolute URL to avoid relative path issues on different deployment environments
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${path}`;
-                }
-                return path;
-            }
-        };
-    </script>
 
     <!-- MediaPipe Hands & Camera Utils -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
