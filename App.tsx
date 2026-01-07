@@ -186,6 +186,7 @@ const App: React.FC = () => {
   const [controlMode, setControlMode] = useState<ControlMode>('one-hand');
   const [shootStyle, setShootStyle] = useState<'pinch' | 'gun'>('pinch');
   const [cameraAllowed, setCameraAllowed] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [handCursors, setHandCursors] = useState<HandCursor[]>([]);
   const [pinchTriggers, setPinchTriggers] = useState<PinchTrigger[]>([]);
   const [showFlicker, setShowFlicker] = useState(false);
@@ -214,9 +215,7 @@ const App: React.FC = () => {
   const palmGestureTimer = useRef<number>(0);
   const lastHoveredElementId = useRef<string | null>(null);
 
-  // Initialize SoundSynth and pre-load tutorial images
   useEffect(() => {
-    // Explicitly pre-load images when app launches
     const imagesToPreload = [
       "https://res.cloudinary.com/dumwsdo42/image/upload/v1767719161/Frame_13_nptunk.png",
       "https://res.cloudinary.com/dumwsdo42/image/upload/v1767719163/Frame_14_mbxzv7.png"
@@ -236,7 +235,6 @@ const App: React.FC = () => {
         synthRef.current.loadMenuBGM(menuMusicUrl),
         synthRef.current.loadGameBGM(gameMusicUrl)
       ]).then(() => {
-        // Start appropriate music if in menu or starting and BGM is enabled
         if ((gameStateRef.current === 'menu' || gameStateRef.current === 'starting') && synthRef.current && bgmEnabledRef.current) {
           synthRef.current.startMenuBGM();
         }
@@ -275,7 +273,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Watch gameState and bgmEnabled to switch or stop music tracks accurately
   useEffect(() => {
     gameStateRef.current = gameState;
     bgmEnabledRef.current = bgmEnabled;
@@ -286,10 +283,8 @@ const App: React.FC = () => {
     }
 
     if (gameState === 'menu' || gameState === 'starting') {
-      // Excitement Music for Landing and Loading
       synthRef.current?.startMenuBGM();
     } else if (gameState === 'playing' || gameState === 'paused' || gameState === 'gameover') {
-      // Battle Music for Gameplay, Pause, and Retry Screen
       synthRef.current?.startBGM();
     }
   }, [gameState, bgmEnabled]);
@@ -382,11 +377,18 @@ const App: React.FC = () => {
     setShowTutorial(false);
   };
 
-  useEffect(() => {
-    const loadHands = () => {
-      const w = window as any;
-      if (!w.Hands || !w.Camera) {
-        setTimeout(loadHands, 100); return;
+  const initCamera = useCallback(async () => {
+    const w = window as any;
+    if (!w.Hands || !w.Camera || !videoRef.current) return;
+
+    try {
+      setCameraError(null);
+      
+      // Pre-flight check for camera permission to avoid silent failures
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (permissionErr: any) {
+        throw permissionErr; // Bubble up to outer catch for UI handling
       }
 
       const hands = new w.Hands({
@@ -534,32 +536,35 @@ const App: React.FC = () => {
       });
       handsRef.current = hands;
 
-      if (videoRef.current) {
-        const camera = new w.Camera(videoRef.current, {
-          onFrame: async () => {
-            if (handsRef.current && videoRef.current) {
-              await handsRef.current.send({ image: videoRef.current });
-            }
-          },
-          width: 1280, height: 720
-        });
-        
-        cameraUtilRef.current = camera;
-        camera.start()
-          .then(() => setCameraAllowed(true))
-          .catch(err => console.warn("Camera failed start.", err));
+      const camera = new w.Camera(videoRef.current, {
+        onFrame: async () => {
+          if (handsRef.current && videoRef.current) {
+            await handsRef.current.send({ image: videoRef.current });
+          }
+        },
+        width: 1280, height: 720
+      });
+      
+      cameraUtilRef.current = camera;
+      await camera.start();
+      setCameraAllowed(true);
+    } catch (e: any) {
+      console.error("Camera Init Error:", e);
+      if (e.name === 'NotAllowedError' || e.message?.includes('Permission denied')) {
+        setCameraError("Camera Access Denied. Check your browser settings to allow camera access.");
+      } else {
+        setCameraError("Failed to initialize camera. Ensure your device is connected and reload.");
       }
-    };
-    loadHands();
-    return () => {
-      if (cameraUtilRef.current) {
-        try { cameraUtilRef.current.stop(); } catch(e) {}
-      }
-      if (handsRef.current) {
-        try { handsRef.current.close(); } catch(e) {}
-      }
-    };
+    }
   }, [handleHandUIAction]);
+
+  useEffect(() => {
+    // Slight delay to ensure DOM is ready and browser has initialized media devices list
+    const timer = setTimeout(() => {
+      initCamera();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [initCamera]);
 
   const handleScore = useCallback(() => {
     setCombo(prevCombo => {
@@ -593,6 +598,27 @@ const App: React.FC = () => {
     <div className="w-full h-full relative text-white overflow-hidden bg-black font-['Orbitron']">
       
       {showFlicker && <div className="absolute inset-0 z-[100] bg-red-600/30 pointer-events-none animate-flicker" />}
+      
+      {/* Camera Error / Permission Overlay */}
+      {cameraError && (
+        <div className="absolute inset-0 bg-black/95 z-[200] flex items-center justify-center p-8 backdrop-blur-3xl">
+          <div className="glass-ui edge-glow p-8 md:p-12 max-w-lg w-full text-center border-red-500/20">
+            <div className="w-14 h-14 border border-red-500/50 flex items-center justify-center mx-auto mb-6 rotate-45">
+              <span className="text-red-500 font-black text-xl -rotate-45">!</span>
+            </div>
+            <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest mb-4 text-white">Signal Failure</h2>
+            <p className="text-white/50 text-xs md:text-sm mb-10 leading-relaxed font-medium">{cameraError}</p>
+            <button 
+              onClick={() => initCamera()}
+              className="px-10 py-4 bg-white text-black font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all text-[10px] md:text-xs"
+            >
+              Establish Connection
+            </button>
+            <p className="mt-8 text-[8px] md:text-[10px] text-white/20 uppercase font-black tracking-widest">Tracking requires visual feed</p>
+          </div>
+        </div>
+      )}
+
       {showLeaderboard && (
         <LeaderboardModal 
           onClose={() => setShowLeaderboard(false)} 
