@@ -170,24 +170,30 @@ export class SoundSynth {
   playExplosion() {
     if (!this.ctx || !this.masterGain) return;
     this.resume();
-    const bufferSize = this.ctx.sampleRate * 0.5;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.5);
+    if (bufferSize <= 0) return;
+    
+    try {
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const noiseFilter = this.ctx.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.value = 1000;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(gain);
+        gain.connect(this.masterGain);
+        noise.start();
+    } catch(e) {
+        console.warn("Explosion audio buffer failed:", e);
     }
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
-    const noiseFilter = this.ctx.createBiquadFilter();
-    noiseFilter.type = 'lowpass';
-    noiseFilter.frequency.value = 1000;
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(gain);
-    gain.connect(this.masterGain);
-    noise.start();
   }
 
   playStart() {

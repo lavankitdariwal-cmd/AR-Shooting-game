@@ -215,7 +215,6 @@ const App: React.FC = () => {
   const palmGestureTimer = useRef<number>(0);
   const lastHoveredElementId = useRef<string | null>(null);
 
-  // Use a stable ref for the handler to avoid restarting the camera when BGM or other state changes
   const handleActionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -388,7 +387,7 @@ const App: React.FC = () => {
     const w = window as any;
     if (!w.Hands || !w.Camera || !videoRef.current) return;
 
-    // Cleanup previous instances if they exist
+    // Resource Cleanup
     if (cameraUtilRef.current) {
         try { cameraUtilRef.current.stop(); } catch(e) {}
         cameraUtilRef.current = null;
@@ -401,18 +400,24 @@ const App: React.FC = () => {
     try {
       setCameraError(null);
       
-      // Pre-flight check for camera permission
-      let preflightStream: MediaStream | null = null;
+      // Explicit Permission Request with Detailed Error Handling
+      let stream: MediaStream | null = null;
       try {
-        preflightStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        // Immediately stop tracks to release the hardware for MediaPipe
-        preflightStream.getTracks().forEach(track => track.stop());
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 1280 }, 
+                height: { ideal: 720 },
+                frameRate: { ideal: 30 } 
+            } 
+        });
+        // We stop pre-flight tracks to let MediaPipe's own Camera helper manage the hardware
+        stream.getTracks().forEach(track => track.stop());
       } catch (permissionErr: any) {
-        console.warn("Pre-flight camera failure:", permissionErr);
-        if (permissionErr.name === 'NotAllowedError' || permissionErr.message?.includes('Permission denied')) {
-          setCameraError("Camera Access Denied. Check your browser settings to allow camera access.");
+        console.error("Camera Hardware Request Denied:", permissionErr);
+        if (permissionErr.name === 'NotAllowedError' || permissionErr.name === 'PermissionDeniedError') {
+          setCameraError("Camera Access Denied. To play, please allow camera access in your browser site settings and reload.");
         } else {
-          setCameraError("Failed to access camera hardware. Ensure it is connected and not in use by another app.");
+          setCameraError("Camera hardware failure. Please ensure your camera is connected and not currently in use by another application.");
         }
         return;
       }
@@ -424,8 +429,8 @@ const App: React.FC = () => {
       hands.setOptions({
         maxNumHands: 1,
         modelComplexity: 1,
-        minDetectionConfidence: 0.8, 
-        minTrackingConfidence: 0.8  
+        minDetectionConfidence: 0.75, 
+        minTrackingConfidence: 0.75  
       });
 
       hands.onResults((results: any) => {
@@ -497,7 +502,7 @@ const App: React.FC = () => {
 
             if (isOpenPalm && gameStateRef.current === 'playing') {
                 palmGestureTimer.current += 1;
-                if (palmGestureTimer.current > 18) {
+                if (palmGestureTimer.current > 20) {
                     if (handleActionRef.current) handleActionRef.current('pause-game');
                     palmGestureTimer.current = 0;
                 }
@@ -515,8 +520,8 @@ const App: React.FC = () => {
             if (!cursorSmoothRefs.current[key]) cursorSmoothRefs.current[key] = { x: processedX, y: processedY };
             const smoothRef = cursorSmoothRefs.current[key];
             if (smoothRef) {
-              smoothRef.x += (processedX - smoothRef.x) * 0.35;
-              smoothRef.y += (processedY - smoothRef.y) * 0.35;
+              smoothRef.x += (processedX - smoothRef.x) * 0.45;
+              smoothRef.y += (processedY - smoothRef.y) * 0.45;
 
               const screenX = Math.max(0, Math.min(100, smoothRef.x));
               const screenY = Math.max(0, Math.min(100, smoothRef.y));
@@ -564,12 +569,11 @@ const App: React.FC = () => {
 
       const camera = new w.Camera(videoRef.current, {
         onFrame: async () => {
-          // Important: check if hands instance is still valid and video is actually ready
           if (handsRef.current && videoRef.current && videoRef.current.readyState >= 2) {
             try {
               await handsRef.current.send({ image: videoRef.current });
             } catch (err) {
-              console.warn("Hand tracking frame processing failed:", err);
+              // Frame dropped, non-critical
             }
           }
         },
@@ -581,15 +585,15 @@ const App: React.FC = () => {
       setCameraAllowed(true);
     } catch (e: any) {
       console.error("Camera Init Error:", e);
-      setCameraError("Tracking initialization failed. Please reload the page or check your hardware.");
+      setCameraError("Failed to initialize recon stream. Please ensure your device supports camera tracking and reload.");
     }
-  }, []); // Stable camera init
+  }, []);
 
   useEffect(() => {
-    // Slight initial delay to ensure DOM and environment are fully stable
+    // Wait for initial DOM stabilization before starting tracking
     const timer = setTimeout(() => {
       initCamera();
-    }, 1000);
+    }, 1200);
     return () => {
       clearTimeout(timer);
       if (cameraUtilRef.current) try { cameraUtilRef.current.stop(); } catch(e) {}
@@ -630,22 +634,29 @@ const App: React.FC = () => {
       
       {showFlicker && <div className="absolute inset-0 z-[100] bg-red-600/30 pointer-events-none animate-flicker" />}
       
-      {/* Camera Error / Permission Overlay */}
+      {/* Dynamic Error HUD */}
       {cameraError && (
-        <div className="absolute inset-0 bg-black/95 z-[200] flex items-center justify-center p-8 backdrop-blur-3xl">
-          <div className="glass-ui edge-glow p-8 md:p-12 max-w-lg w-full text-center border-red-500/20">
-            <div className="w-14 h-14 border border-red-500/50 flex items-center justify-center mx-auto mb-6 rotate-45">
-              <span className="text-red-500 font-black text-xl -rotate-45">!</span>
+        <div className="absolute inset-0 bg-black/98 z-[200] flex items-center justify-center p-10 backdrop-blur-3xl">
+          <div className="glass-ui edge-glow p-10 md:p-14 max-w-xl w-full text-center border-red-500/20">
+            <div className="w-16 h-16 border border-red-500 flex items-center justify-center mx-auto mb-8 rotate-45">
+              <span className="text-red-500 font-black text-2xl -rotate-45">!</span>
             </div>
-            <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest mb-4 text-white">Signal Failure</h2>
-            <p className="text-white/50 text-xs md:text-sm mb-10 leading-relaxed font-medium">{cameraError}</p>
-            <button 
-              onClick={() => initCamera()}
-              className="px-10 py-4 bg-white text-black font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all text-[10px] md:text-xs"
-            >
-              Establish Connection
-            </button>
-            <p className="mt-8 text-[8px] md:text-[10px] text-white/20 uppercase font-black tracking-widest">Tracking requires visual feed</p>
+            <h2 className="text-2xl md:text-3xl font-black uppercase tracking-[0.3em] mb-6 text-white">Signal Failure</h2>
+            <p className="text-white/50 text-xs md:text-sm mb-12 leading-relaxed font-bold tracking-tight">{cameraError}</p>
+            <div className="flex flex-col gap-4 items-center">
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-12 py-5 bg-white text-black font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all text-xs"
+              >
+                Reload Feed
+              </button>
+              <button 
+                onClick={() => initCamera()}
+                className="text-white/30 hover:text-white uppercase text-[10px] font-black tracking-widest mt-4 underline underline-offset-8"
+              >
+                Retry Initialization
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -686,7 +697,7 @@ const App: React.FC = () => {
 
       <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-8 z-20">
         
-        {/* HUD */}
+        {/* Engagement HUD */}
         {(gameState === 'playing' || gameState === 'paused') && (
             <div className="flex justify-between items-start">
                 <div className="glass-ui px-4 py-3 md:px-8 md:py-5 min-w-[120px] md:min-w-[180px]">
@@ -702,7 +713,7 @@ const App: React.FC = () => {
             </div>
         )}
 
-        {/* Starting Countdown Overlay */}
+        {/* Deployment Sequence */}
         {gameState === 'starting' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-[70] backdrop-blur-md edge-glow p-4">
             <div className="mb-4 md:mb-8 flex flex-col items-center">
@@ -720,7 +731,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Menu */}
+        {/* Tactical Command (Menu) */}
         {gameState === 'menu' && (
           <div className="absolute inset-0 bg-black z-50 pointer-events-auto flex flex-col items-center justify-center p-4 md:p-8 edge-glow overflow-y-auto">
             
@@ -813,7 +824,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Pause Overlay */}
+        {/* Pause State */}
         {gameState === 'paused' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-[60] pointer-events-auto backdrop-blur-sm edge-glow p-4">
             <div className="text-center w-full max-w-xs md:max-w-md">
@@ -827,11 +838,11 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* GameOver Overlay */}
+        {/* System Overload (GameOver) */}
         {gameState === 'gameover' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-50 pointer-events-auto edge-glow p-4">
             <div className="text-center p-4 md:p-12 w-full max-w-md">
-              <h2 className="text-3xl md:text-6xl font-black mb-6 md:mb-12 uppercase tracking-tighter italic">Lets Try Again</h2>
+              <h2 className="text-3xl md:text-6xl font-black mb-6 md:mb-12 uppercase tracking-tighter italic">Mission End</h2>
               <div className="text-5xl md:text-8xl font-black mb-6 md:mb-16 tabular-nums">{score.toLocaleString()}</div>
               <div className="flex flex-col gap-3 md:gap-4 items-center">
                 <button data-hand-action="restart" onClick={() => handleHandUIAction('restart')} className="w-full py-4 md:py-6 bg-white text-black font-black rounded-none uppercase tracking-widest hover:scale-105 transition-all text-xs md:text-base">Retry</button>

@@ -6,20 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Void Recon</title>
     
-    <!-- Robust CSP for MediaPipe WASM, Web Workers, and Blob URLs -->
+    <!-- Standardized CSP: Allows MediaPipe's WASM, Workers, and CDN dependencies. 
+         Note: 'unsafe-eval' is technically required by the current MediaPipe WASM loader 
+         unless specific server-side COOP/COEP headers are set, which aren't available 
+         via client-side meta tags alone. We optimize for maximum compatibility. -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; child-src blob:; img-src 'self' https: data: blob:;">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
     
-    <!-- Preload Tutorial Images -->
+    <!-- Preload Tutorial Assets -->
     <link rel="preload" as="image" href="https://res.cloudinary.com/dumwsdo42/image/upload/v1767719161/Frame_13_nptunk.png">
     <link rel="preload" as="image" href="https://res.cloudinary.com/dumwsdo42/image/upload/v1767719163/Frame_14_mbxzv7.png">
 
-    <!-- Three.js -->
+    <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    <!-- MediaPipe Hands & Camera Utils -->
+    <!-- MediaPipe Hands & Camera Utils - Loaded via CDN as requested -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     
