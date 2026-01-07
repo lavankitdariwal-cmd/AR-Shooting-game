@@ -6,10 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Void Recon</title>
     
-    <!-- Standardized CSP: Allows MediaPipe's WASM, Workers, and CDN dependencies. 
-         Note: 'unsafe-eval' is technically required by the current MediaPipe WASM loader 
-         unless specific server-side COOP/COEP headers are set, which aren't available 
-         via client-side meta tags alone. We optimize for maximum compatibility. -->
+    <!-- Standardized CSP: Allows MediaPipe's WASM, Workers, and CDN dependencies. -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; child-src blob:; img-src 'self' https: data: blob:;">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -22,7 +19,7 @@
     <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    <!-- MediaPipe Hands & Camera Utils - Loaded via CDN as requested -->
+    <!-- MediaPipe Hands & Camera Utils - Loaded via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     
@@ -81,69 +78,24 @@
             transition: transform 0.1s linear, background-color 0.1s;
         }
         
-        .hand-cursor.style-pinch {
-            border-radius: 50%;
-        }
-        
-        .hand-cursor.style-gun {
-            border-radius: 0;
-            width: 40px;
-            height: 40px;
-        }
-        .hand-cursor.style-gun::before, .hand-cursor.style-gun::after {
-            content: '';
-            position: absolute;
-            background: white;
-        }
+        .hand-cursor.style-pinch { border-radius: 50%; }
+        .hand-cursor.style-gun { border-radius: 0; width: 40px; height: 40px; }
+        .hand-cursor.style-gun::before, .hand-cursor.style-gun::after { content: ''; position: absolute; background: white; }
         .hand-cursor.style-gun::before { width: 100%; height: 1px; top: 50%; left: 0; }
         .hand-cursor.style-gun::after { height: 100%; width: 1px; left: 50%; top: 0; }
 
-        .hand-cursor.pinched {
-            background: white;
-            transform: translate(-50%, -50%) scale(0.8);
-            box-shadow: 0 0 25px rgba(255,255,255,0.8);
-        }
+        .hand-cursor.pinched { background: white; transform: translate(-50%, -50%) scale(0.8); box-shadow: 0 0 25px rgba(255,255,255,0.8); }
+        .hand-cursor.style-gun.pinched { box-shadow: 0 0 40px rgba(255,255,255,1), 0 0 80px rgba(255,255,255,0.4); }
 
-        .hand-cursor.style-gun.pinched {
-            box-shadow: 0 0 40px rgba(255,255,255,1), 0 0 80px rgba(255,255,255,0.4);
-        }
-
-        .hand-hover {
-            transform: scale(1.05);
-            filter: brightness(1.2);
-            border-color: rgba(255, 255, 255, 1) !important;
-        }
+        .hand-hover { transform: scale(1.05); filter: brightness(1.2); border-color: rgba(255, 255, 255, 1) !important; }
         
         #camera-container {
-            position: absolute; 
-            bottom: 30px; 
-            right: 30px; 
-            width: 140px; 
-            height: 105px; 
-            z-index: 50;
-            padding: 4px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 0;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: absolute; bottom: 30px; right: 30px; width: 140px; height: 105px; z-index: 50; padding: 4px;
+            background: rgba(255, 255, 255, 0.05); border-radius: 0; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .camera-inner {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            border-radius: 0;
-            position: relative;
-            background: #000;
-        }
-
-        #camera-feed { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-            transform: scaleX(-1);
-            opacity: 0.6;
-        }
+        .camera-inner { width: 100%; height: 100%; overflow: hidden; border-radius: 0; position: relative; background: #000; }
+        #camera-feed { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: 0.6; }
         
         @keyframes screen-flicker {
             0% { opacity: 0; }
@@ -154,53 +106,21 @@
             50% { opacity: 0.7; }
             100% { opacity: 0; }
         }
+        .animate-flicker { animation: screen-flicker 0.4s ease-out forwards; }
 
-        .animate-flicker {
-            animation: screen-flicker 0.4s ease-out forwards;
-        }
-
-        .edge-glow {
-            position: relative;
-            overflow: hidden;
-        }
+        .edge-glow { position: relative; overflow: hidden; }
         .edge-glow::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            border: 1px solid transparent;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(255,255,255,0.02) 20%, 
-                rgba(255,255,255,0.15) 50%, 
-                rgba(255,255,255,0.02) 80%, 
-                transparent 100%) border-box;
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 1px solid transparent;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.02) 20%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.02) 80%, transparent 100%) border-box;
             -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: destination-out;
-            mask-composite: exclude;
-            background-size: 200% 100%;
-            animation: move-glow 8s linear infinite;
-            pointer-events: none;
-            z-index: 100;
-            filter: blur(2px);
+            -webkit-mask-composite: destination-out; mask-composite: exclude;
+            background-size: 200% 100%; animation: move-glow 8s linear infinite; pointer-events: none; z-index: 100; filter: blur(2px);
         }
 
-        @keyframes move-glow {
-            from { background-position: 200% 0; }
-            to { background-position: -200% 0; }
-        }
+        @keyframes move-glow { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
-        @media (max-width: 640px) {
-            #camera-container {
-                width: 110px;
-                height: 82px;
-                bottom: 20px;
-                right: 20px;
-            }
-        }
-        
-        button {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        @media (max-width: 640px) { #camera-container { width: 110px; height: 82px; bottom: 20px; right: 20px; } }
+        button { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
     <script type="importmap">
     {
@@ -208,7 +128,8 @@
         "react": "https://esm.sh/react@^19.2.3",
         "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
         "react/": "https://esm.sh/react@^19.2.3/",
-        "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+        "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+        "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.46.1"
       }
     }
     </script>
