@@ -1,10 +1,18 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Mission } from "../types";
 
-// Correctly initialize GoogleGenAI with the API key from environment variables
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to get AI instance safely
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+};
 
 export const generateMission = async (): Promise<Mission | null> => {
+  const ai = getAI();
+  if (!ai) return null;
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -22,7 +30,6 @@ export const generateMission = async (): Promise<Mission | null> => {
       }
     });
 
-    // Property access .text is the correct way to extract generated content
     const text = response.text;
     return text ? JSON.parse(text) : null;
   } catch (error) {
@@ -32,16 +39,18 @@ export const generateMission = async (): Promise<Mission | null> => {
 };
 
 export const generateDebrief = async (score: number, combo: number): Promise<string | null> => {
+  const ai = getAI();
+  if (!ai) return "Mission parameters recorded. Operator performance verified.";
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `You are a minimalist, cold AI commander. The player finished a mission in a dark sector. Score: ${score}. Max Combo: ${combo}. Write a short, 1-sentence performance review using cybernetic or data-stream metaphors.`,
     });
 
-    // Use property access .text as per guidelines
     return response.text || null;
   } catch (error) {
     console.error("Debrief Generation Error:", error);
-    return null;
+    return "Link established. Performance synchronized.";
   }
 };
