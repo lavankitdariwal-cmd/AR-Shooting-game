@@ -83,7 +83,11 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
     const THREE = window.THREE;
     if (!THREE || !activeRef.current || !sceneRef.current || !cameraRef.current || !mouseRef.current || !raycasterRef.current) return;
 
-    if (synthRef.current) synthRef.current.playLaser();
+    // Firing Haptics: Short pulse to simulate trigger pull
+    if (synthRef.current) {
+        synthRef.current.playLaser();
+        synthRef.current.triggerHaptic(30);
+    }
     
     mouseRef.current.x = (screenX * 2) - 1;
     mouseRef.current.y = -(screenY * 2) + 1;
@@ -123,6 +127,11 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
     if (bestHit) {
       if (comboRef.current > 0) {
         slowMoEndTimeRef.current = Date.now() + SLOW_MO_DURATION;
+      }
+
+      // Hit Haptics: Solid noticeable thud
+      if (synthRef.current) {
+        synthRef.current.triggerHaptic(70);
       }
 
       createExplosion(bestHit.object.position, bestHit.object.scale.x);

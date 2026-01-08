@@ -1,4 +1,3 @@
-
 export class SoundSynth {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
@@ -27,6 +26,16 @@ export class SoundSynth {
       this.ctx.resume().catch(err => console.error("Could not resume AudioContext", err));
     }
     this.isUnlocked = true;
+  }
+
+  /**
+   * Triggers haptic feedback (vibration) if supported by the device.
+   * @param pattern Vibration pattern in milliseconds.
+   */
+  public triggerHaptic(pattern: number | number[]) {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(pattern);
+    }
   }
 
   private setupAudioElement(url: string): HTMLAudioElement {

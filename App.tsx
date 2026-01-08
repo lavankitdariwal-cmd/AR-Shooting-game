@@ -87,6 +87,8 @@ const GestureIllustration: React.FC<{ style: ShootStyle; isMouse: boolean; scale
 
 const TutorialOverlay: React.FC<{ onClose: (finishedAll: boolean) => void, onNav: () => void, currentStyle: ShootStyle, isMouse: boolean }> = ({ onClose, onNav, currentStyle, isMouse }) => {
   const [step, setStep] = useState(0);
+  const [currentStyleRef] = useState(currentStyle); // Keep original style for UI consistency
+
   const steps = [
     { 
       title: "UI NAVIGATION", 
@@ -410,7 +412,13 @@ const App: React.FC = () => {
   const handleHandUIAction = useCallback((action: string, value?: string) => {
     if ((gameStateRef.current === 'playing' || gameStateRef.current === 'starting') && 
         action !== 'pause-game' && action !== 'resume-game' && action !== 'quit-game' && action !== 'show-tutorial' && action !== 'close-tut') return;
-    if (synthRef.current) synthRef.current.playClick();
+    
+    // UI Haptics: Short sharp pulse
+    if (synthRef.current) {
+        synthRef.current.playClick();
+        synthRef.current.triggerHaptic(20);
+    }
+
     switch (action) {
       case 'set-difficulty': if (value) setDifficulty(value as Difficulty); break;
       case 'set-mode': if (value) setControlMode(value as ControlMode); break;
@@ -499,12 +507,12 @@ const App: React.FC = () => {
                 for (const el of interactiveElements) {
                     const rect = el.getBoundingClientRect();
                     if (pxX >= rect.left && pxX <= rect.right && pxY >= rect.top && pxY <= rect.bottom) {
-                        if (handClickEnabledRef.current) el.classList.add('hand-hover');
+                        if (handClickEnabled) el.classList.add('hand-hover');
                         if (lastHoveredElementId.current !== (el.id || el.getAttribute('data-hand-action'))) {
                           lastHoveredElementId.current = el.id || el.getAttribute('data-hand-action');
                           if (synthRef.current) synthRef.current.playHover();
                         }
-                        if (actionJustStarted && handClickEnabledRef.current) {
+                        if (actionJustStarted && handClickEnabled) {
                             el.click(); // BROAD CLICK TO TRIGGER COMPONENT-INTERNAL ACTIONS
                         }
                         break;
@@ -523,7 +531,7 @@ const App: React.FC = () => {
       cameraUtilRef.current = camera;
       await camera.start(); setCameraAllowed(true);
     } catch (e: any) { setCameraError("Initialization failed. Please reload."); }
-  }, []);
+  }, [handClickEnabled]);
 
   useEffect(() => {
     const timer = setTimeout(() => initCamera(), 1200);
@@ -531,7 +539,19 @@ const App: React.FC = () => {
   }, [initCamera]);
 
   const handleScore = useCallback(() => setCombo(prev => { const newCombo = prev + 1; setScore(s => s + Math.floor(100 * (1 + (newCombo * 0.15)))); return newCombo; }), []);
-  const handleMiss = useCallback(() => { setCombo(0); setShowFlicker(true); setTimeout(() => setShowFlicker(false), 400); setLives(prev => { if (prev <= 1) setGameState('gameover'); return prev - 1; }); }, []);
+  
+  const handleMiss = useCallback(() => { 
+    setCombo(0); 
+    setShowFlicker(true); 
+    setTimeout(() => setShowFlicker(false), 400); 
+    
+    // Damage Haptics: Double warning pulse
+    if (synthRef.current) {
+      synthRef.current.triggerHaptic([100, 50, 100]);
+    }
+
+    setLives(prev => { if (prev <= 1) setGameState('gameover'); return prev - 1; }); 
+  }, []);
 
   const handleSaveScore = async () => {
     if (isSubmitting || !playerName.trim() || hasSubmitted) return;
@@ -545,7 +565,10 @@ const App: React.FC = () => {
     });
     if (success) { 
       setHasSubmitted(true);
-      if (synthRef.current) synthRef.current.playClick();
+      if (synthRef.current) {
+          synthRef.current.playClick();
+          synthRef.current.triggerHaptic(30);
+      }
       setShowLeaderboard(true);
     }
     setIsSubmitting(false);
@@ -645,7 +668,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex flex-col items-center justify-start w-full mt-[calc(1vh+40px)] sm:mt-[calc(2vh+40px)]">
-              <div className="flex flex-col items-center gap-[30px] mb-[30px]">
+              <div className="flex flex-col items-center gap-8 sm:gap-[50px] mb-8 sm:mb-[60px]">
                 <div className="h-[10vh] sm:h-[15vh] flex items-center justify-center">
                   <div className="scale-[0.26] sm:scale-[0.36] md:scale-[0.54] origin-center">
                     <TargetIllustration />
