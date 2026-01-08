@@ -83,10 +83,10 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
     const THREE = window.THREE;
     if (!THREE || !activeRef.current || !sceneRef.current || !cameraRef.current || !mouseRef.current || !raycasterRef.current) return;
 
-    // Firing Haptics: Short pulse to simulate trigger pull
+    // Firing Haptics: Stronger pulse
     if (synthRef.current) {
         synthRef.current.playLaser();
-        synthRef.current.triggerHaptic(30);
+        synthRef.current.triggerHaptic(60);
     }
     
     mouseRef.current.x = (screenX * 2) - 1;
@@ -129,9 +129,9 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
         slowMoEndTimeRef.current = Date.now() + SLOW_MO_DURATION;
       }
 
-      // Hit Haptics: Solid noticeable thud
+      // Hit Haptics: Strong thud
       if (synthRef.current) {
-        synthRef.current.triggerHaptic(70);
+        synthRef.current.triggerHaptic(100);
       }
 
       createExplosion(bestHit.object.position, bestHit.object.scale.x);

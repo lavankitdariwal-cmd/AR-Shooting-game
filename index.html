@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Void Recon</title>
     
-    <!-- Standardized CSP: Allows MediaPipe's WASM, Workers, and CDN dependencies. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; child-src blob:; img-src 'self' https: data: blob:;">
+    <!-- Robust CSP for Supabase and MediaPipe CDN -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://*.supabase.co https://*.usercontent.goog https://cdn.jsdelivr.net data: blob:; worker-src 'self' blob:; child-src blob:; img-src 'self' https: data: blob:;">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -89,6 +89,7 @@
 
         .hand-hover { transform: scale(1.05); filter: brightness(1.2); border-color: rgba(255, 255, 255, 1) !important; }
         
+        /* Fixed Camera Preview: Portrait orientation for mobile to capture full vertical hand motion */
         #camera-container {
             position: fixed; bottom: 30px; right: 30px; width: 140px; height: 105px; z-index: 500; padding: 4px;
             background: rgba(255, 255, 255, 0.05); border-radius: 0; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);
@@ -121,7 +122,9 @@
 
         @keyframes move-glow { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
-        @media (max-width: 640px) { #camera-container { width: 110px; height: 82px; bottom: 20px; right: 20px; } }
+        @media (max-width: 640px) { 
+            #camera-container { width: 100px; height: 177px; bottom: 20px; right: 20px; } 
+        }
         button { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
