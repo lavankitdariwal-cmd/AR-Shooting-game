@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,6 +14,7 @@
     <!-- Preload Tutorial Assets -->
     <link rel="preload" as="image" href="https://res.cloudinary.com/dumwsdo42/image/upload/v1767719161/Frame_13_nptunk.png">
     <link rel="preload" as="image" href="https://res.cloudinary.com/dumwsdo42/image/upload/v1767719163/Frame_14_mbxzv7.png">
+    <link rel="preload" as="image" href="https://res.cloudinary.com/dumwsdo42/image/upload/v1767888231/Frame_15_qfqn5a.png">
 
     <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -90,8 +90,10 @@
         .hand-hover { transform: scale(1.05); filter: brightness(1.2); border-color: rgba(255, 255, 255, 1) !important; }
         
         #camera-container {
-            position: absolute; bottom: 30px; right: 30px; width: 140px; height: 105px; z-index: 50; padding: 4px;
+            position: fixed; bottom: 30px; right: 30px; width: 140px; height: 105px; z-index: 500; padding: 4px;
             background: rgba(255, 255, 255, 0.05); border-radius: 0; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
         }
 
         .camera-inner { width: 100%; height: 100%; overflow: hidden; border-radius: 0; position: relative; background: #000; }
@@ -121,6 +123,9 @@
 
         @media (max-width: 640px) { #camera-container { width: 110px; height: 82px; bottom: 20px; right: 20px; } }
         button { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
     </style>
     <script type="importmap">
     {
@@ -136,7 +141,6 @@
 </head>
 <body>
     <div id="root"></div>
-    <!-- Added explicit module entry point to fix blank screen issue -->
     <script type="module" src="./index.tsx"></script>
 </body>
 </html>

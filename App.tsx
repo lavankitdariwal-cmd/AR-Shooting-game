@@ -47,14 +47,14 @@ const TargetIllustration: React.FC = () => {
   return <div ref={containerRef} className="pointer-events-none origin-center" />;
 };
 
-const GestureIllustration: React.FC<{ style: ShootStyle; isMouse: boolean }> = ({ style, isMouse }) => {
+const GestureIllustration: React.FC<{ style: ShootStyle; isMouse: boolean; scale?: string }> = ({ style, isMouse, scale = "w-[min(550px,75vw)]" }) => {
   if (style === 'tap') {
     const imgUrl = isMouse 
       ? "https://res.cloudinary.com/dumwsdo42/image/upload/v1767881454/2_gimhen.png"
       : "https://res.cloudinary.com/dumwsdo42/image/upload/v1767881455/1_dg6lzf.png";
     
     return (
-      <div className="flex flex-col items-center justify-center pointer-events-none transition-all duration-300 w-[min(550px,75vw)] h-auto">
+      <div className={`flex flex-col items-center justify-center pointer-events-none transition-all duration-300 ${scale} h-auto`}>
         <img 
           src={imgUrl} 
           alt={`${isMouse ? 'Click' : 'Tap'} Tutorial`} 
@@ -72,14 +72,14 @@ const GestureIllustration: React.FC<{ style: ShootStyle; isMouse: boolean }> = (
     : "https://res.cloudinary.com/dumwsdo42/image/upload/v1767719163/Frame_14_mbxzv7.png";
 
   return (
-    <div className="flex flex-col items-center justify-center pointer-events-none transition-all duration-300 w-[min(550px,75vw)] h-auto">
+    <div className={`flex flex-col items-center justify-center pointer-events-none transition-all duration-300 ${scale} h-auto`}>
       <img 
         src={imgUrl} 
         alt={`${style === 'pinch' ? 'Pinch' : 'Gun Sign'} Tutorial`} 
         className="w-full h-full object-contain opacity-100 drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]"
       />
       <div className="text-white font-black uppercase tracking-[0.2em] text-[10px] md:text-lg mt-2 text-center whitespace-nowrap drop-shadow-lg">
-        DO THIS GESTURE TO SHOOT OR {isMouse ? 'CLICK' : 'TAP'}
+        {style === 'pinch' ? 'PINCH GESTURE ACTIVE' : 'GUN SIGN GESTURE ACTIVE'}
       </div>
     </div>
   );
@@ -89,32 +89,71 @@ const TutorialOverlay: React.FC<{ onClose: (finishedAll: boolean) => void, onNav
   const [step, setStep] = useState(0);
   const steps = [
     { 
-      title: "NAVIGATION", 
-      desc: currentStyle === 'tap' 
-        ? `UI ELEMENTS CAN BE INTERACTED WITH VIA TRADITIONAL ${isMouse ? 'CLICK' : 'TAP'} INPUTS.`
-        : "MOVE YOUR HAND IN FRONT OF THE CAMERA TO CONTROL THE CROSSHAIR. THE UI WILL HIGHLIGHT WHEN YOU HOVER OVER IT." 
+      title: "UI NAVIGATION", 
+      desc: "MOVE YOUR HAND TO CONTROL THE CROSSHAIR. PINCH CURSOR USES A CIRCULAR RING. GUN SIGN USES A PRECISION CROSSHAIR. HOVER OVER BUTTONS AND GESTURE TO CLICK." 
     },
     { 
-      title: "SELECTION & FIRING", 
-      desc: currentStyle === 'tap'
-        ? `DIRECTLY ${isMouse ? 'CLICK' : 'TAP'} ON SCREEN TARGETS TO DESTROY THEM. NO CAMERA IS REQUIRED FOR THIS MODE.`
-        : `USE YOUR CHOSEN GESTURE (PINCH OR GUN SIGN) TO ${isMouse ? 'CLICK' : 'TAP'} UI BUTTONS AND SHOOT TARGETS IN-GAME.` 
+      title: "HAND GESTURES", 
+      desc: "PINCH: CLOSE THUMB AND INDEX TO TRIGGER A CLICK OR FIRE. GUN SIGN: EXTEND INDEX AND THUMB, THEN CURL MIDDLE FINGERS TO FIRE." 
     },
-    { title: "COMBAT MECHANICS", desc: "TARGETS MOVE TOWARD YOU. DESTROY THEM BEFORE THEY REACH THE INTEGRITY THRESHOLD. HIGH COMBOS TRIGGER SLOW-MOTION." },
-    { title: "EMERGENCY PAUSE", desc: currentStyle === 'tap' ? "USE THE PAUSE BUTTON OR ESCAPE TO PAUSE THE ENGAGEMENT." : "HOLD AN OPEN PALM FOR 2 SECONDS TO PAUSE THE ENGAGEMENT AT ANY TIME." }
+    { 
+      title: "EMERGENCY PAUSE", 
+      desc: "HOLD AN OPEN PALM STEADY FOR 2 SECONDS TO PAUSE THE ENGAGEMENT. THIS ALLOWS FOR TACTICAL RE-CALIBRATION." 
+    }
   ];
+  
   const next = () => { onNav(); setStep(step + 1); };
   const prev = () => { onNav(); setStep(step - 1); };
 
   return (
     <div className="absolute inset-0 bg-black/95 z-[150] flex items-center justify-center p-8 backdrop-blur-xl">
-      <div className="glass-ui edge-glow p-6 md:p-12 max-w-xl w-full text-center">
+      <div className="glass-ui edge-glow p-6 md:p-12 max-w-2xl w-full text-center relative flex flex-col items-center">
+        <button 
+          data-hand-action="close-tut" 
+          onClick={() => { onNav(); onClose(false); }} 
+          className="absolute top-4 right-4 md:top-8 md:right-8 text-white/40 hover:text-white uppercase text-[10px] font-black border border-white/20 px-4 py-2"
+        >
+          CLOSE
+        </button>
+        
         <div className="text-[10px] uppercase text-white/40 mb-2 font-black tracking-widest">TUTORIAL MODE</div>
         <h2 className="text-2xl md:text-3xl font-black uppercase tracking-widest mb-6">{steps[step].title}</h2>
-        <div className="mb-8 min-h-[80px]">
-          <p className="text-white/70 text-sm md:text-base leading-relaxed">{steps[step].desc}</p>
+        
+        <div className="mb-8 w-full flex justify-center items-center h-[200px] md:h-[280px]">
+           {step === 0 && (
+              <div className="flex gap-12 items-center">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-12 h-12 border-2 border-white rounded-full flex items-center justify-center"><div className="w-1 h-1 bg-white rounded-full"/></div>
+                  <span className="text-[8px] font-black uppercase text-white/40">PINCH RING</span>
+                </div>
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-12 h-12 border border-white relative"><div className="absolute inset-0 border-t border-white top-1/2"/><div className="absolute inset-0 border-l border-white left-1/2"/></div>
+                  <span className="text-[8px] font-black uppercase text-white/40">GUN CROSSHAIR</span>
+                </div>
+              </div>
+           )}
+           {step === 1 && (
+             <div className="flex gap-4 md:gap-8 items-center justify-center scale-75 md:scale-100">
+               <div className="flex flex-col items-center gap-2">
+                 <img src="https://res.cloudinary.com/dumwsdo42/image/upload/v1767719161/Frame_13_nptunk.png" className="h-32 object-contain" alt="Pinch" />
+                 <span className="text-[10px] font-black uppercase">PINCH</span>
+               </div>
+               <div className="flex flex-col items-center gap-2">
+                 <img src="https://res.cloudinary.com/dumwsdo42/image/upload/v1767719163/Frame_14_mbxzv7.png" className="h-32 object-contain" alt="Gun" />
+                 <span className="text-[10px] font-black uppercase">GUN SIGN</span>
+               </div>
+             </div>
+           )}
+           {step === 2 && (
+             <img src="https://res.cloudinary.com/dumwsdo42/image/upload/v1767888231/Frame_15_qfqn5a.png" className="h-32 md:h-48 object-contain" alt="Pause Gesture" />
+           )}
         </div>
-        <div className="flex justify-between items-center mt-6 md:mt-10">
+
+        <div className="mb-8 min-h-[60px]">
+          <p className="text-white/70 text-sm md:text-base leading-relaxed max-w-lg mx-auto">{steps[step].desc}</p>
+        </div>
+        
+        <div className="flex justify-between items-center w-full mt-auto">
           <button data-hand-action="tut-prev" onClick={() => step > 0 ? prev() : null} className={`text-[10px] md:text-xs font-black uppercase tracking-widest ${step === 0 ? 'opacity-0 pointer-events-none' : 'text-white/40 hover:text-white'}`}>PREV</button>
           <div className="flex gap-2">
             {steps.map((_, i) => <div key={i} className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-none rotate-45 ${i === step ? 'bg-white' : 'bg-white/10'}`} />)}
@@ -147,12 +186,9 @@ const LeaderboardModal: React.FC<{ onClose: () => void, onAction: () => void, cu
     return name.replace(/[_-]?\d+$/, '').trim();
   };
 
-  // Find user rank robustly
   let userRank = -1;
   if (currentUserScore !== undefined && currentUserName !== undefined) {
-    // Attempt exact match
     userRank = entries.findIndex(e => e.player_name === currentUserName && e.score === currentUserScore) + 1;
-    // Fallback rank calculation based on score if exact entry is not found (due to sync lag)
     if (userRank <= 0) {
       userRank = entries.findIndex(e => currentUserScore >= e.score) + 1;
       if (userRank === 0) userRank = entries.length + 1;
@@ -167,7 +203,7 @@ const LeaderboardModal: React.FC<{ onClose: () => void, onAction: () => void, cu
       <div className="glass-ui edge-glow p-8 md:p-10 max-w-lg w-full">
         <div className="flex justify-between items-center mb-8 md:mb-10 border-b border-white/10 pb-4">
           <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest">ELITE VANGUARD</h2>
-          <button data-hand-action="close-board" onClick={() => { onAction(); onClose(); }} className="text-white/40 hover:text-white uppercase text-[10px] md:text-xs font-bold">CLOSE</button>
+          <button data-hand-action="close-board" onClick={() => { onAction(); onClose(); }} className="text-white/40 hover:text-white uppercase text-[10px] md:text-xs font-bold border border-white/10 px-4 py-2">CLOSE</button>
         </div>
         <div className="flex flex-col gap-4 md:gap-5 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
           {loading ? (
@@ -196,7 +232,6 @@ const LeaderboardModal: React.FC<{ onClose: () => void, onAction: () => void, cu
                 })}
               </div>
 
-              {/* Always show current user's performance at bottom if not in top 7 and they have submitted */}
               {!isUserInTop7 && userRank > 0 && currentUserScore !== undefined && (
                 <div className="mt-4 pt-4 border-t border-white/10">
                   <div className="text-center text-[10px] text-white/10 mb-4 tracking-[0.8em]">YOUR PERFORMANCE RECORD</div>
@@ -250,7 +285,6 @@ const App: React.FC = () => {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isMouse, setIsMouse] = useState(false);
   
-  // Ranking context for gameover screen
   const [rankInfo, setRankInfo] = useState<{ rank: number, pointsToTarget: number, targetRank: number } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -272,10 +306,8 @@ const App: React.FC = () => {
 
   const handleActionRef = useRef<any>(null);
 
-  // Detect mouse/touch
   useEffect(() => {
     const checkMouse = () => {
-      // Logic to determine if user has a mouse or touch-only device
       setIsMouse(window.matchMedia('(pointer: fine)').matches);
     };
     checkMouse();
@@ -352,23 +384,20 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, [gameState, countdown]);
 
-  // Rank calculation for Game Over screen
   useEffect(() => {
     if (gameState === 'gameover') {
       const calculateRank = async () => {
         const entries = await fetchLeaderboard();
-        // Determine rank if user were in the list with current score
         let currentRank = entries.findIndex(e => score >= e.score) + 1;
         if (currentRank === 0) currentRank = entries.length + 1;
         
         let targetRank = Math.max(1, currentRank - 5);
-        // Special case: if target is the same as current (e.g. rank 1), find rank 1's score anyway
         let targetScore = entries[targetRank - 1]?.score || 0;
         
         if (currentRank <= 5) targetRank = 1;
         
         let pointsToTarget = Math.max(0, targetScore - score);
-        if (currentRank === 1) pointsToTarget = 0; // Top of the list
+        if (currentRank === 1) pointsToTarget = 0;
 
         setRankInfo({ rank: currentRank, pointsToTarget, targetRank });
       };
@@ -380,7 +409,7 @@ const App: React.FC = () => {
 
   const handleHandUIAction = useCallback((action: string, value?: string) => {
     if ((gameStateRef.current === 'playing' || gameStateRef.current === 'starting') && 
-        action !== 'pause-game' && action !== 'resume-game' && action !== 'quit-game' && action !== 'show-tutorial') return;
+        action !== 'pause-game' && action !== 'resume-game' && action !== 'quit-game' && action !== 'show-tutorial' && action !== 'close-tut') return;
     if (synthRef.current) synthRef.current.playClick();
     switch (action) {
       case 'set-difficulty': if (value) setDifficulty(value as Difficulty); break;
@@ -388,11 +417,12 @@ const App: React.FC = () => {
       case 'set-style': if (value) setShootStyle(value as ShootStyle); break;
       case 'start-game': setScore(0); setCombo(0); setLives(3); setCountdown(8); setGameState('starting'); setHasSubmitted(false); setPlayerName(''); if (synthRef.current) synthRef.current.playStart(); break;
       case 'show-tutorial': setShowTutorial(true); break;
+      case 'close-tut': setShowTutorial(false); break;
       case 'show-leaderboard': setShowLeaderboard(true); break;
       case 'visit-linkedin': window.open('https://linkedin.com/in/lavankit-dariwal-3baa39242', '_blank'); break;
       case 'close-board': setShowLeaderboard(false); break;
       case 'pause-game': setGameState('paused'); break;
-      case 'resume-game': setGameState('playing'); break;
+      case 'resume-game': setCountdown(3); setGameState('starting'); break;
       case 'quit-game': setGameState('menu'); break;
       case 'restart': setScore(0); setCombo(0); setLives(3); setCountdown(8); setGameState('starting'); setHasSubmitted(false); setPlayerName(''); if (synthRef.current) synthRef.current.playStart(); break;
       case 'toggle-bgm': setBgmEnabled(!bgmEnabled); break;
@@ -420,12 +450,12 @@ const App: React.FC = () => {
       const hands = new w.Hands({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
       hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.75, minTrackingConfidence: 0.75 });
       hands.onResults((results: any) => {
-        // Only process results if not in Tap mode
-        if (shootStyleRef.current === 'tap') return;
-
         const newCursors: HandCursor[] = [];
         const newTriggers: PinchTrigger[] = [];
+        const isTapMode = shootStyleRef.current === 'tap';
+        
         document.querySelectorAll('.hand-hover').forEach(el => el.classList.remove('hand-hover'));
+
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
           const interactiveElements = Array.from(document.querySelectorAll('[data-hand-action]')) as HTMLElement[];
           results.multiHandLandmarks.forEach((landmarks: any, index: number) => {
@@ -433,25 +463,29 @@ const App: React.FC = () => {
             const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
             const handScale = dist(indexMcp, wrist), pinchDistance = dist(thumbTip, indexTip), key = results.multiHandedness?.[index]?.label || `hand-${index}`;
             let isActionActive = false, trackingTarget = indexTip;
-            if (shootStyleRef.current === 'pinch') {
+            
+            if (shootStyleRef.current === 'pinch' || isTapMode) {
               trackingTarget = thumbTip;
               const threshold = handScale * 0.22;
               let isPinched = wasPinchedRefs.current[key] || false;
               if (isPinched) { if (pinchDistance > threshold * 1.5) isPinched = false; } else { if (pinchDistance < threshold) isPinched = true; }
               isActionActive = isPinched;
-            } else {
+            } else if (shootStyleRef.current === 'gun') {
               trackingTarget = indexTip;
               const isIndexExtended = dist(indexTip, wrist) > handScale * 1.7, isRingCurled = dist(ringTip, wrist) < handScale * 1.1, isPinkyCurled = dist(pinkyTip, wrist) < handScale * 1.0, isGunPose = isIndexExtended && isRingCurled && isPinkyCurled;
               const currentMiddleY = middleTip.y, prevMiddleY = prevMiddleYRefs.current[key] || currentMiddleY, middleVelocityY = currentMiddleY - prevMiddleY; 
               prevMiddleYRefs.current[key] = currentMiddleY;
               isActionActive = isGunPose && (middleVelocityY < -0.025);
             }
+
             const actionJustStarted = !wasPinchedRefs.current[key] && isActionActive;
             wasPinchedRefs.current[key] = isActionActive;
+            
             if ([indexTip, middleTip, ringTip, pinkyTip].every(tip => tip && dist(tip, wrist) > handScale * 1.65) && gameStateRef.current === 'playing') {
                 palmGestureTimer.current += 1;
                 if (palmGestureTimer.current > 20) { if (handleActionRef.current) handleActionRef.current('pause-game'); palmGestureTimer.current = 0; }
             } else palmGestureTimer.current = 0;
+
             const processedX = 50 + ((1 - trackingTarget.x) * 100 - 50) * Math.min(3.5, Math.max(1.0, 0.18 / handScale));
             const processedY = 50 + (trackingTarget.y * 100 - 50) * Math.min(3.5, Math.max(1.0, 0.18 / handScale));
             if (!cursorSmoothRefs.current[key]) cursorSmoothRefs.current[key] = { x: processedX, y: processedY };
@@ -459,6 +493,7 @@ const App: React.FC = () => {
             smoothRef.x += (processedX - smoothRef.x) * 0.45;
             smoothRef.y += (processedY - smoothRef.y) * 0.45;
             const screenX = Math.max(0, Math.min(100, smoothRef.x)), screenY = Math.max(0, Math.min(100, smoothRef.y));
+            
             if (gameStateRef.current !== 'playing' && gameStateRef.current !== 'starting') {
                 const pxX = (screenX / 100) * window.innerWidth, pxY = (screenY / 100) * window.innerHeight;
                 for (const el of interactiveElements) {
@@ -470,13 +505,13 @@ const App: React.FC = () => {
                           if (synthRef.current) synthRef.current.playHover();
                         }
                         if (actionJustStarted && handClickEnabledRef.current) {
-                            const action = el.getAttribute('data-hand-action'), value = el.getAttribute('data-hand-value');
-                            if (action && handleActionRef.current) handleActionRef.current(action, value || undefined);
+                            el.click(); // BROAD CLICK TO TRIGGER COMPONENT-INTERNAL ACTIONS
                         }
                         break;
                     }
                 }
             }
+            
             newCursors.push({ x: screenX, y: screenY, visible: true, pinched: isActionActive, id: index });
             newTriggers.push({ x: screenX / 100, y: screenY / 100, active: isActionActive, id: index });
           });
@@ -484,24 +519,16 @@ const App: React.FC = () => {
         setHandCursors(newCursors); setPinchTriggers(newTriggers);
       });
       handsRef.current = hands;
-      const camera = new w.Camera(videoRef.current, { onFrame: async () => { if (handsRef.current && videoRef.current && videoRef.current.readyState >= 2 && shootStyleRef.current !== 'tap') try { await handsRef.current.send({ image: videoRef.current }); } catch (err) {} }, width: 1280, height: 720 });
+      const camera = new w.Camera(videoRef.current, { onFrame: async () => { if (handsRef.current && videoRef.current && videoRef.current.readyState >= 2) try { await handsRef.current.send({ image: videoRef.current }); } catch (err) {} }, width: 1280, height: 720 });
       cameraUtilRef.current = camera;
-      if (shootStyleRef.current !== 'tap') {
-        await camera.start(); setCameraAllowed(true);
-      }
+      await camera.start(); setCameraAllowed(true);
     } catch (e: any) { setCameraError("Initialization failed. Please reload."); }
   }, []);
 
   useEffect(() => {
-    if (shootStyle === 'tap') {
-      if (cameraUtilRef.current) try { cameraUtilRef.current.stop(); } catch(e) {}
-      setCameraAllowed(false);
-      setHandCursors([]);
-    } else {
-      const timer = setTimeout(() => initCamera(), 1200);
-      return () => clearTimeout(timer);
-    }
-  }, [initCamera, shootStyle]);
+    const timer = setTimeout(() => initCamera(), 1200);
+    return () => clearTimeout(timer);
+  }, [initCamera]);
 
   const handleScore = useCallback(() => setCombo(prev => { const newCombo = prev + 1; setScore(s => s + Math.floor(100 * (1 + (newCombo * 0.15)))); return newCombo; }), []);
   const handleMiss = useCallback(() => { setCombo(0); setShowFlicker(true); setTimeout(() => setShowFlicker(false), 400); setLives(prev => { if (prev <= 1) setGameState('gameover'); return prev - 1; }); }, []);
@@ -548,8 +575,21 @@ const App: React.FC = () => {
         />
       )}
       {showTutorial && <TutorialOverlay onClose={(fin) => { if (fin) localStorage.setItem('void_recon_tutorial_v1', 'true'); setShowTutorial(false); }} onNav={() => synthRef.current?.playMenuMove()} currentStyle={shootStyle} isMouse={isMouse} />}
-      {handCursors.map(cursor => <div key={cursor.id} className={`hand-cursor ${cursor.pinched ? 'pinched' : ''} style-${shootStyle}`} style={{ left: cursor.x + '%', top: cursor.y + '%' }} />)}
-      {(gameState === 'playing' || gameState === 'paused') && <Game isActive={gameState === 'playing'} onScore={handleScore} onMiss={handleMiss} onGameOver={() => setGameState('gameover')} externalTriggers={pinchTriggers} difficulty={difficulty} controlMode={controlMode} combo={combo} />}
+      
+      {shootStyle !== 'tap' && handCursors.map(cursor => <div key={cursor.id} className={`hand-cursor ${cursor.pinched ? 'pinched' : ''} style-${shootStyle}`} style={{ left: cursor.x + '%', top: cursor.y + '%' }} />)}
+      
+      {(gameState === 'playing' || gameState === 'paused') && (
+        <Game 
+          isActive={gameState === 'playing'} 
+          onScore={handleScore} 
+          onMiss={handleMiss} 
+          onGameOver={() => setGameState('gameover')} 
+          externalTriggers={shootStyle === 'tap' ? [] : pinchTriggers} 
+          difficulty={difficulty} 
+          controlMode={controlMode} 
+          combo={combo} 
+        />
+      )}
       
       <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 sm:p-6 md:p-8 z-20 h-full w-full">
         <div className="w-full flex-shrink-0">
@@ -563,17 +603,18 @@ const App: React.FC = () => {
                     
                     <div className="flex flex-col items-end gap-2 md:gap-3">
                       <div className="flex gap-4 md:gap-6 items-center">
-                        {gameState === 'playing' && shootStyle === 'tap' && (
+                        {(gameState === 'playing' || gameState === 'paused') && (
                           <button 
-                            data-hand-action="pause-game"
-                            onClick={() => handleHandUIAction('pause-game')}
+                            data-hand-action={gameState === 'playing' ? 'pause-game' : 'resume-game'}
+                            onClick={() => handleHandUIAction(gameState === 'playing' ? 'pause-game' : 'resume-game')}
                             className="pointer-events-auto bg-white/10 p-2 border border-white/20 hover:bg-white/20 transition-all"
-                            aria-label="Pause Game"
+                            aria-label={gameState === 'playing' ? "Pause Game" : "Resume Game"}
                           >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                              <rect x="6" y="4" width="4" height="16" />
-                              <rect x="14" y="4" width="4" height="16" />
-                            </svg>
+                            {gameState === 'playing' ? (
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+                            ) : (
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                            )}
                           </button>
                         )}
                         <div className="flex gap-2 md:gap-4">
@@ -604,7 +645,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex flex-col items-center justify-start w-full mt-[calc(1vh+40px)] sm:mt-[calc(2vh+40px)]">
-              <div className="flex flex-col items-center gap-5 mb-[50px]">
+              <div className="flex flex-col items-center gap-[30px] mb-[30px]">
                 <div className="h-[10vh] sm:h-[15vh] flex items-center justify-center">
                   <div className="scale-[0.26] sm:scale-[0.36] md:scale-[0.54] origin-center">
                     <TargetIllustration />
@@ -614,8 +655,7 @@ const App: React.FC = () => {
               </div>
               
               <div className="flex flex-col items-center w-full max-w-7xl flex-shrink-0 scale-[0.98] origin-top">
-                <div className="flex flex-col min-[1000px]:flex-row gap-8 min-[1000px]:gap-12 items-center">
-                  {/* Level First */}
+                <div className="flex flex-col min-[1000px]:flex-row gap-[30px] items-center">
                   <div className="flex flex-col gap-2 md:gap-3 items-center">
                     <span className="text-[7px] md:text-[9px] font-black uppercase text-white/40 tracking-[0.3em]">LEVEL</span>
                     <div className="flex gap-2 sm:gap-3 md:gap-4">
@@ -625,8 +665,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-col min-[600px]:flex-row gap-8 min-[600px]:gap-12 items-center">
-                    {/* Shoot Style Second */}
+                  <div className="flex flex-col min-[600px]:flex-row gap-[30px] items-center">
                     <div className="flex flex-col gap-2 md:gap-3 items-center">
                       <span className="text-[7px] md:text-[9px] font-black uppercase text-white/40 tracking-[0.3em]">SHOOT STYLE</span>
                       <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
@@ -636,16 +675,13 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Interaction Third (Hidden if Tap) */}
-                    {shootStyle !== 'tap' && (
-                      <div className="flex flex-col gap-2 md:gap-3 items-center">
-                        <span className="text-[7px] md:text-[9px] font-black uppercase text-white/40 tracking-[0.3em]">INTERACTION</span>
-                        <div className="flex gap-2 sm:gap-4">
-                          <button data-hand-action="set-mode" data-hand-value="one-hand" onClick={() => handleHandUIAction('set-mode', 'one-hand')} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${controlMode === 'one-hand' ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>ONE HAND</button>
-                          <button data-hand-action="set-mode" data-hand-value="two-hands" onClick={() => handleHandUIAction('set-mode', 'two-hands')} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${controlMode === 'two-hands' ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>TWO HANDS</button>
-                        </div>
+                    <div className={`flex flex-col gap-2 md:gap-3 items-center transition-opacity duration-500 ${shootStyle === 'tap' ? 'opacity-30' : 'opacity-100'}`}>
+                      <span className="text-[7px] md:text-[9px] font-black uppercase text-white/40 tracking-[0.3em]">INTERACTION</span>
+                      <div className={`flex gap-2 sm:gap-4 ${shootStyle === 'tap' ? 'pointer-events-none' : 'pointer-events-auto'}`}>
+                        <button data-hand-action="set-mode" data-hand-value="one-hand" onClick={() => handleHandUIAction('set-mode', 'one-hand')} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${controlMode === 'one-hand' ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>ONE HAND</button>
+                        <button data-hand-action="set-mode" data-hand-value="two-hands" onClick={() => handleHandUIAction('set-mode', 'two-hands')} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${controlMode === 'two-hands' ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>TWO HANDS</button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
 
@@ -665,7 +701,9 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center">
               <GestureIllustration style={shootStyle} isMouse={isMouse} />
               <div className="text-center mt-[20px]">
-                <p className="text-white/60 text-[8px] md:text-sm uppercase font-black mb-1 md:mb-2 tracking-widest">PREPARE ENGAGEMENT</p>
+                <p className="text-white/60 text-[8px] md:text-sm uppercase font-black mb-1 md:mb-2 tracking-widest">
+                  {countdown > 3 ? "PREPARE ENGAGEMENT" : "RESUMING ENGAGEMENT"}
+                </p>
                 <div className="text-5xl md:text-9xl font-black leading-none">{countdown > 0 ? countdown : "GO"}</div>
               </div>
             </div>
@@ -702,9 +740,6 @@ const App: React.FC = () => {
                       <span className="text-white font-black">+{rankInfo.pointsToTarget.toLocaleString()}</span> POINTS NEEDED FOR <span className="text-white font-black italic">RANK #{rankInfo.targetRank}</span>
                     </div>
                   )}
-                  {rankInfo.rank === 1 && (
-                    <div className="text-[10px] text-green-400 font-black tracking-widest uppercase">ELITE OPERATOR DETECTED</div>
-                  )}
                 </div>
               )}
 
@@ -737,33 +772,19 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-3">
-                <button 
-                  data-hand-action="restart" 
-                  onClick={() => handleHandUIAction('restart')} 
-                  className="w-full py-4 bg-white text-black font-black uppercase text-[11px] md:text-sm hover:scale-105 transition-all"
-                >
-                  RETRY
-                </button>
-                <button 
-                  data-hand-action="quit-game" 
-                  onClick={() => handleHandUIAction('quit-game')} 
-                  className="w-full py-4 border border-white/20 text-white font-black uppercase text-[11px] md:text-sm"
-                >
-                  GO TO MAIN MENU
-                </button>
+                <button data-hand-action="restart" onClick={() => handleHandUIAction('restart')} className="w-full py-4 bg-white text-black font-black uppercase text-[11px] md:text-sm hover:scale-105 transition-all">RETRY</button>
+                <button data-hand-action="quit-game" onClick={() => handleHandUIAction('quit-game')} className="w-full py-4 border border-white/20 text-white font-black uppercase text-[11px] md:text-sm">GO TO MAIN MENU</button>
               </div>
             </div>
           </div>
         )}
       </div>
       
-      {shootStyle !== 'tap' && (
-        <div id="camera-container" className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-none">
-          <div className="camera-inner pointer-events-none">
-            <video ref={videoRef} id="camera-feed" playsInline muted className={!cameraAllowed ? 'hidden' : 'block'} />
-          </div>
+      <div id="camera-container" className={`${shootStyle === 'tap' ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="camera-inner pointer-events-none">
+          <video ref={videoRef} id="camera-feed" playsInline muted className={!cameraAllowed ? 'hidden' : 'block'} />
         </div>
-      )}
+      </div>
     </div>
   );
 };
