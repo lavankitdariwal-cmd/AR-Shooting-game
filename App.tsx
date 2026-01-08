@@ -107,7 +107,7 @@ const TutorialOverlay: React.FC<{ onClose: (finishedAll: boolean) => void, onNav
   const prev = () => { onNav(); setStep(step - 1); };
 
   return (
-    <div className="absolute inset-0 bg-black/95 z-[150] flex items-center justify-center p-8 backdrop-blur-xl">
+    <div id="modal-tutorial" className="absolute inset-0 bg-black/95 z-[150] flex items-center justify-center p-8 backdrop-blur-xl">
       <div className="glass-ui edge-glow p-6 md:p-12 max-w-2xl w-full text-center relative flex flex-col items-center">
         <button 
           data-hand-action="close-tut" 
@@ -200,7 +200,7 @@ const LeaderboardModal: React.FC<{ onClose: () => void, onAction: () => void, cu
   const top7 = entries.slice(0, 7);
 
   return (
-    <div className="absolute inset-0 bg-black/90 z-[100] flex items-center justify-center p-8 backdrop-blur-md">
+    <div id="modal-leaderboard" className="absolute inset-0 bg-black/90 z-[100] flex items-center justify-center p-8 backdrop-blur-md">
       <div className="glass-ui edge-glow p-8 md:p-10 max-w-lg w-full">
         <div className="flex justify-between items-center mb-8 md:mb-10 border-b border-white/10 pb-4">
           <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest">ELITE VANGUARD</h2>
@@ -298,6 +298,8 @@ const App: React.FC = () => {
   const shootStyleRef = useRef(shootStyle);
   const handClickEnabledRef = useRef(handClickEnabled);
   const bgmEnabledRef = useRef(bgmEnabled);
+  const showTutorialRef = useRef(showTutorial);
+  const showLeaderboardRef = useRef(showLeaderboard);
 
   const cursorSmoothRefs = useRef<Record<string, {x: number, y: number}>>({});
   const wasPinchedRefs = useRef<Record<string, boolean>>({});
@@ -316,6 +318,16 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', checkMouse);
   }, []);
 
+  const unlockAudio = useCallback(() => {
+    if (synthRef.current) {
+      synthRef.current.resume();
+      if (bgmEnabledRef.current) {
+        if (gameStateRef.current === 'menu' || gameStateRef.current === 'starting') synthRef.current.startMenuBGM();
+        else synthRef.current.startBGM();
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!synthRef.current) {
       synthRef.current = new SoundSynth();
@@ -328,23 +340,16 @@ const App: React.FC = () => {
       ]);
     }
 
-    const unlockAudio = () => {
-      if (synthRef.current) {
-        synthRef.current.resume();
-        if (bgmEnabledRef.current) {
-          if (gameStateRef.current === 'menu' || gameStateRef.current === 'starting') synthRef.current.startMenuBGM();
-          else synthRef.current.startBGM();
-        }
-      }
-    };
-    window.addEventListener('click', unlockAudio);
+    const interactions = ['click', 'touchstart', 'pointerdown', 'mousedown', 'keydown'];
+    interactions.forEach(ev => window.addEventListener(ev, unlockAudio, { once: true }));
+    
     if (!window.isSecureContext && window.location.hostname !== 'localhost') setIsSecure(false);
     
     return () => {
       synthRef.current?.stopBGM();
-      window.removeEventListener('click', unlockAudio);
+      interactions.forEach(ev => window.removeEventListener(ev, unlockAudio));
     };
-  }, []);
+  }, [unlockAudio]);
 
   useEffect(() => {
     const prev = prevGameStateRef.current;
@@ -367,6 +372,8 @@ const App: React.FC = () => {
 
   useEffect(() => { shootStyleRef.current = shootStyle; }, [shootStyle]);
   useEffect(() => { handClickEnabledRef.current = handClickEnabled; }, [handClickEnabled]);
+  useEffect(() => { showTutorialRef.current = showTutorial; }, [showTutorial]);
+  useEffect(() => { showLeaderboardRef.current = showLeaderboard; }, [showLeaderboard]);
 
   useEffect(() => {
     if (handsRef.current) {
@@ -409,10 +416,10 @@ const App: React.FC = () => {
   }, [gameState, score]);
 
   const handleHandUIAction = useCallback((action: string, value?: string) => {
+    unlockAudio();
     if ((gameStateRef.current === 'playing' || gameStateRef.current === 'starting') && 
         action !== 'pause-game' && action !== 'resume-game' && action !== 'quit-game' && action !== 'show-tutorial' && action !== 'close-tut') return;
     
-    // UI Haptics: Significantly boosted
     if (synthRef.current) {
         synthRef.current.playClick();
         synthRef.current.triggerHaptic(200);
@@ -435,19 +442,15 @@ const App: React.FC = () => {
       case 'toggle-bgm': setBgmEnabled(!bgmEnabled); break;
       case 'submit-score': handleSaveScore(); break;
     }
-  }, [bgmEnabled, playerName, score, difficulty, controlMode]);
+  }, [bgmEnabled, playerName, score, difficulty, controlMode, unlockAudio]);
 
   useEffect(() => { handleActionRef.current = handleHandUIAction; }, [handleHandUIAction]);
 
   const initCamera = useCallback(async () => {
     const w = window as any;
-    
-    // Wait for Hands and Camera to be available on window
     const checkInterval = setInterval(async () => {
       if (!w.Hands || !w.Camera || !videoRef.current) return;
-      
       clearInterval(checkInterval);
-      
       if (cameraUtilRef.current && handsRef.current) return;
 
       try {
@@ -463,15 +466,15 @@ const App: React.FC = () => {
           return;
         }
         
-        // Fixed locateFile to be more resilient
         const hands = new w.Hands({ 
-          locateFile: (file: string) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-          }
+          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
         
+        // Initial maxNumHands calculation to fix launch issue (usually 1 for menu)
+        const initialMaxHands = ((gameStateRef.current === 'playing' || gameStateRef.current === 'starting') && controlMode === 'two-hands') ? 2 : 1;
+
         hands.setOptions({ 
-          maxNumHands: 2, 
+          maxNumHands: initialMaxHands, 
           modelComplexity: 1, 
           minDetectionConfidence: 0.6, 
           minTrackingConfidence: 0.6 
@@ -483,11 +486,23 @@ const App: React.FC = () => {
           const currentStyle = shootStyleRef.current;
           const currentHandClick = handClickEnabledRef.current;
           const currentGameState = gameStateRef.current;
+          const isTutOpen = showTutorialRef.current;
+          const isBoardOpen = showLeaderboardRef.current;
 
           document.querySelectorAll('.hand-hover').forEach(el => el.classList.remove('hand-hover'));
 
           if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            const interactiveElements = Array.from(document.querySelectorAll('[data-hand-action]')) as HTMLElement[];
+            let interactiveElements: HTMLElement[] = [];
+            if (isTutOpen) {
+              const modal = document.getElementById('modal-tutorial');
+              interactiveElements = modal ? Array.from(modal.querySelectorAll('[data-hand-action]')) as HTMLElement[] : [];
+            } else if (isBoardOpen) {
+              const modal = document.getElementById('modal-leaderboard');
+              interactiveElements = modal ? Array.from(modal.querySelectorAll('[data-hand-action]')) as HTMLElement[] : [];
+            } else {
+              interactiveElements = Array.from(document.querySelectorAll('[data-hand-action]')) as HTMLElement[];
+            }
+
             results.multiHandLandmarks.forEach((landmarks: any, index: number) => {
               const wrist = landmarks[0], thumbTip = landmarks[4], indexMcp = landmarks[5], indexTip = landmarks[8], middleTip = landmarks[12], ringTip = landmarks[16], pinkyTip = landmarks[20];
               const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
@@ -510,23 +525,30 @@ const App: React.FC = () => {
 
               const actionJustStarted = !wasPinchedRefs.current[key] && isActionActive;
               wasPinchedRefs.current[key] = isActionActive;
-              
-              // PALM PAUSE works in all modes
+              if (actionJustStarted) unlockAudio();
+
               const isFingerExt = (p: any) => p && dist(p, wrist) > handScale * 1.6;
               if (currentGameState === 'playing' && isFingerExt(indexTip) && isFingerExt(middleTip) && isFingerExt(ringTip) && isFingerExt(pinkyTip)) {
                   palmGestureTimer.current += 1;
-                  if (palmGestureTimer.current > 40) { // Approx 1.5s
+                  if (palmGestureTimer.current > 40) { 
                     if (handleActionRef.current) handleActionRef.current('pause-game'); 
                     palmGestureTimer.current = 0; 
                   }
               } else palmGestureTimer.current = 0;
 
-              const processedX = 50 + ((1 - trackingTarget.x) * 100 - 50) * Math.min(3.5, Math.max(1.0, 0.18 / handScale));
-              const processedY = 50 + (trackingTarget.y * 100 - 50) * Math.min(3.5, Math.max(1.0, 0.18 / handScale));
+              const clampedX = Math.max(0.05, Math.min(0.95, trackingTarget.x));
+              const clampedY = Math.max(0.05, Math.min(0.95, trackingTarget.y));
+              const ampX = Math.min(3.2, Math.max(1.0, 0.16 / handScale));
+              const ampY = Math.min(3.2, Math.max(1.0, 0.16 / handScale));
+              const processedX = 50 + ((1 - clampedX) * 100 - 50) * ampX;
+              const processedY = 50 + (clampedY * 100 - 50) * ampY;
+
               if (!cursorSmoothRefs.current[key]) cursorSmoothRefs.current[key] = { x: processedX, y: processedY };
               const smoothRef = cursorSmoothRefs.current[key];
-              smoothRef.x += (processedX - smoothRef.x) * 0.45;
-              smoothRef.y += (processedY - smoothRef.y) * 0.45;
+              const distFromCenter = Math.sqrt(Math.pow(trackingTarget.x - 0.5, 2) + Math.pow(trackingTarget.y - 0.5, 2));
+              const smoothingFactor = distFromCenter > 0.4 ? 0.25 : 0.45;
+              smoothRef.x += (processedX - smoothRef.x) * smoothingFactor;
+              smoothRef.y += (processedY - smoothRef.y) * smoothingFactor;
               const screenX = Math.max(0, Math.min(100, smoothRef.x)), screenY = Math.max(0, Math.min(100, smoothRef.y));
               
               if (currentGameState !== 'playing' && currentGameState !== 'starting') {
@@ -539,14 +561,11 @@ const App: React.FC = () => {
                             lastHoveredElementId.current = el.id || el.getAttribute('data-hand-action');
                             if (synthRef.current) synthRef.current.playHover();
                           }
-                          if (actionJustStarted && currentHandClick) {
-                              el.click();
-                          }
+                          if (actionJustStarted && currentHandClick) el.click();
                           break;
                       }
                   }
               }
-              
               newCursors.push({ x: screenX, y: screenY, visible: true, pinched: isActionActive, id: index });
               newTriggers.push({ x: screenX / 100, y: screenY / 100, active: isActionActive, id: index });
             });
@@ -555,6 +574,9 @@ const App: React.FC = () => {
         });
         handsRef.current = hands;
         
+        // Immediate option sync after ref assignment
+        handsRef.current.setOptions({ maxNumHands: initialMaxHands });
+
         const camera = new w.Camera(videoRef.current, { 
           onFrame: async () => { 
             if (handsRef.current && videoRef.current && videoRef.current.readyState >= 2) {
@@ -567,39 +589,29 @@ const App: React.FC = () => {
         await camera.start(); setCameraAllowed(true);
       } catch (e: any) { setCameraError("Initialization failed. Please reload."); }
     }, 500);
-    
     return () => clearInterval(checkInterval);
-  }, []);
+  }, [unlockAudio, controlMode]);
 
   useEffect(() => {
     initCamera();
   }, [initCamera]);
 
   const handleScore = useCallback(() => setCombo(prev => { const newCombo = prev + 1; setScore(s => s + Math.floor(100 * (1 + (newCombo * 0.15)))); return newCombo; }), []);
-  
   const handleMiss = useCallback(() => { 
     setCombo(0); 
     setShowFlicker(true); 
     setTimeout(() => setShowFlicker(false), 400); 
-    if (synthRef.current) {
-      synthRef.current.triggerHaptic([300, 150, 300]); // Stronger haptic for damage
-    }
+    if (synthRef.current) synthRef.current.triggerHaptic([300, 150, 300]);
     setLives(prev => { if (prev <= 1) setGameState('gameover'); return prev - 1; }); 
   }, []);
 
   const handleSaveScore = async () => {
     if (isSubmitting || !playerName.trim() || hasSubmitted) return;
     setIsSubmitting(true);
-    const sanitizedName = playerName.trim();
-    const success = await submitScore({
-      player_name: sanitizedName, score: score, difficulty: difficulty, control_mode: controlMode
-    });
+    const success = await submitScore({ player_name: playerName.trim(), score, difficulty, control_mode: controlMode });
     if (success) { 
       setHasSubmitted(true);
-      if (synthRef.current) {
-          synthRef.current.playClick();
-          synthRef.current.triggerHaptic(200);
-      }
+      if (synthRef.current) { synthRef.current.playClick(); synthRef.current.triggerHaptic(200); }
       setShowLeaderboard(true);
     }
     setIsSubmitting(false);
@@ -621,21 +633,13 @@ const App: React.FC = () => {
         </div>
       )}
       {showLeaderboard && (
-        <LeaderboardModal 
-          onClose={() => setShowLeaderboard(false)} 
-          onAction={() => handleHandUIAction('close-board')} 
-          currentUserScore={hasSubmitted ? score : undefined}
-          currentUserName={hasSubmitted ? playerName : undefined}
-        />
+        <LeaderboardModal onClose={() => setShowLeaderboard(false)} onAction={() => handleHandUIAction('close-board')} currentUserScore={hasSubmitted ? score : undefined} currentUserName={hasSubmitted ? playerName : undefined} />
       )}
       {showTutorial && <TutorialOverlay onClose={(fin) => { if (fin) localStorage.setItem('void_recon_tutorial_v1', 'true'); setShowTutorial(false); }} onNav={() => synthRef.current?.playMenuMove()} currentStyle={shootStyle} isMouse={isMouse} />}
-      
       {shootStyle !== 'tap' && handCursors.map(cursor => <div key={cursor.id} className={`hand-cursor ${cursor.pinched ? 'pinched' : ''} style-${shootStyle}`} style={{ left: cursor.x + '%', top: cursor.y + '%' }} />)}
-      
       {(gameState === 'playing' || gameState === 'paused') && (
         <Game isActive={gameState === 'playing'} onScore={handleScore} onMiss={handleMiss} onGameOver={() => setGameState('gameover')} externalTriggers={shootStyle === 'tap' ? [] : pinchTriggers} difficulty={difficulty} controlMode={controlMode} combo={combo} />
       )}
-      
       <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 sm:p-6 md:p-8 z-20 h-full w-full">
         <div className="w-full flex-shrink-0">
             {(gameState === 'playing' || gameState === 'paused') && (
@@ -645,32 +649,22 @@ const App: React.FC = () => {
                         <div className="text-lg md:text-4xl font-black">{score.toLocaleString()}</div>
                         {combo > 1 && <div className="text-white/60 text-[8px] md:text-xs font-bold mt-1">x{combo} COMBO</div>}
                     </div>
-                    
                     <div className="flex flex-col items-end gap-2 md:gap-3">
                       <div className="flex gap-4 md:gap-6 items-center">
-                        <button data-hand-action={gameState === 'playing' ? 'pause-game' : 'resume-game'} onClick={() => handleHandUIAction(gameState === 'playing' ? 'pause-game' : 'resume-game')} className="pointer-events-auto bg-white/10 p-2 border border-white/20 hover:bg-white/20 transition-all z-[1000]">
-                          {gameState === 'playing' ? (
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-                          ) : (
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                          )}
+                        <button data-hand-action={gameState === 'playing' ? 'pause-game' : 'resume-game'} onClick={(e) => { e.stopPropagation(); handleHandUIAction(gameState === 'playing' ? 'pause-game' : 'resume-game'); }} className="pointer-events-auto bg-white/10 p-2 border border-white/20 hover:bg-white/20 transition-all z-[1000]">
+                          {gameState === 'playing' ? <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg> : <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>}
                         </button>
                         <div className="flex gap-2 md:gap-4">
-                          {[0, 1, 2].map((i) => (
-                            <div key={i} className={`w-2.5 h-2.5 md:w-4 md:h-4 rounded-none rotate-45 transition-all duration-500 ${i < lives ? 'bg-white shadow-[0_0_15px_white]' : 'bg-white/10 scale-50 opacity-20'}`} />
-                          ))}
+                          {[0, 1, 2].map((i) => <div key={i} className={`w-2.5 h-2.5 md:w-4 md:h-4 rounded-none rotate-45 transition-all duration-500 ${i < lives ? 'bg-white shadow-[0_0_15px_white]' : 'bg-white/10 scale-50 opacity-20'}`} />)}
                         </div>
                       </div>
-                      {gameState === 'playing' && (
-                        <span className="text-[7px] md:text-[9px] uppercase text-white/40 font-black animate-pulse tracking-[0.2em] whitespace-nowrap">OPEN PALM TO PAUSE</span>
-                      )}
+                      {gameState === 'playing' && <span className="text-[7px] md:text-[9px] uppercase text-white/40 font-black animate-pulse tracking-[0.2em] whitespace-nowrap">OPEN PALM TO PAUSE</span>}
                     </div>
                 </div>
             )}
         </div>
-
         {gameState === 'menu' && (
-          <div className="absolute inset-0 bg-black z-50 pointer-events-auto flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 edge-glow h-full w-full overflow-y-auto custom-scrollbar">
+          <div className={`absolute inset-0 bg-black z-50 pointer-events-auto flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 edge-glow h-full w-full overflow-y-auto custom-scrollbar ${(showTutorial || showLeaderboard) ? 'opacity-40 pointer-events-none' : ''}`}>
             <div className="w-full flex justify-between items-start flex-shrink-0 relative z-10 mb-4">
               <div className="flex flex-col items-start gap-1 cursor-pointer group" data-hand-action="visit-linkedin" onClick={() => handleHandUIAction('visit-linkedin')}>
                 <span className="text-white/40 text-[7px] md:text-[8px] uppercase font-bold tracking-widest group-hover:text-white">CREATED BY</span>
@@ -681,13 +675,10 @@ const App: React.FC = () => {
                 <button data-hand-action="show-leaderboard" onClick={() => handleHandUIAction('show-leaderboard')} className="text-white/40 hover:text-white uppercase text-[8px] md:text-xs font-black border border-white/20 px-2 py-1 md:px-4 md:py-2">BOARD</button>
               </div>
             </div>
-
             <div className="flex flex-col items-center justify-start w-full mt-10 flex-shrink-0 pb-20">
               <div className="flex flex-col items-center gap-6 sm:gap-[50px] mb-8 sm:mb-[60px]">
                 <div className="h-[10vh] sm:h-[15vh] flex items-center justify-center">
-                  <div className="scale-[0.26] sm:scale-[0.36] md:scale-[0.54] origin-center">
-                    <TargetIllustration />
-                  </div>
+                  <div className="scale-[0.26] sm:scale-[0.36] md:scale-[0.54] origin-center"><TargetIllustration /></div>
                 </div>
                 <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white uppercase italic text-center flex-shrink-0">VOID RECON</h1>
               </div>
@@ -696,9 +687,7 @@ const App: React.FC = () => {
                   <div className="flex flex-col gap-2 md:gap-3 items-center">
                     <span className="text-[7px] md:text-[9px] font-black uppercase text-white/40 tracking-[0.3em]">LEVEL</span>
                     <div className="flex gap-2 sm:gap-3 md:gap-4">
-                      {(['easy', 'medium', 'hard'] as Difficulty[]).map(lvl => (
-                        <button key={lvl} data-hand-action="set-difficulty" data-hand-value={lvl} onClick={() => handleHandUIAction('set-difficulty', lvl)} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${difficulty === lvl ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>{lvl.toUpperCase()}</button>
-                      ))}
+                      {(['easy', 'medium', 'hard'] as Difficulty[]).map(lvl => <button key={lvl} data-hand-action="set-difficulty" data-hand-value={lvl} onClick={() => handleHandUIAction('set-difficulty', lvl)} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${difficulty === lvl ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>{lvl.toUpperCase()}</button>)}
                     </div>
                   </div>
                   <div className="flex flex-col min-[600px]:flex-row gap-[30px] items-center">
@@ -733,9 +722,7 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center">
               <GestureIllustration style={shootStyle} isMouse={isMouse} />
               <div className="text-center mt-[20px]">
-                <p className="text-white/60 text-[8px] md:text-sm uppercase font-black mb-1 md:mb-2 tracking-widest">
-                  {countdown > 3 ? "PREPARE ENGAGEMENT" : "RESUMING ENGAGEMENT"}
-                </p>
+                <p className="text-white/60 text-[8px] md:text-sm uppercase font-black mb-1 md:mb-2 tracking-widest">{countdown > 3 ? "PREPARE ENGAGEMENT" : "RESUMING ENGAGEMENT"}</p>
                 <div className="text-5xl md:text-9xl font-black leading-none">{countdown > 0 ? countdown : "GO"}</div>
               </div>
             </div>
@@ -764,23 +751,15 @@ const App: React.FC = () => {
                     <span className="text-[9px] uppercase font-bold text-white/40">CURRENT SECTOR RANK</span>
                     <span className="text-lg font-black text-white">#{rankInfo.rank}</span>
                   </div>
-                  {rankInfo.rank > 1 && (
-                    <div className="text-[10px] text-white/60 font-medium tracking-tight">
-                      <span className="text-white font-black">+{rankInfo.pointsToTarget.toLocaleString()}</span> POINTS NEEDED FOR <span className="text-white font-black italic">RANK #{rankInfo.targetRank}</span>
-                    </div>
-                  )}
+                  {rankInfo.rank > 1 && <div className="text-[10px] text-white/60 font-medium tracking-tight"><span className="text-white font-black">+{rankInfo.pointsToTarget.toLocaleString()}</span> POINTS NEEDED FOR <span className="text-white font-black italic">RANK #{rankInfo.targetRank}</span></div>}
                 </div>
               )}
               <div className="mb-8 text-left">
                 <div className="text-[10px] uppercase text-white/40 mb-2 font-black tracking-widest">ENTER YOUR NAME TO SAVE SCORE.</div>
                 <div className="flex gap-2">
                   <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value.toUpperCase().slice(0, 16))} className="flex-grow bg-white/5 border border-white/20 px-4 py-3 text-left text-white font-black tracking-widest focus:border-white focus:outline-none uppercase text-[11px] md:text-sm" placeholder="YOUR GAMING NAME" />
-                  {playerName.trim() && !hasSubmitted && (
-                    <button data-hand-action="submit-score" onClick={() => handleHandUIAction('submit-score')} className={`px-4 bg-white text-black font-black transition-all ${isSubmitting ? 'opacity-50' : 'hover:scale-105'}`} disabled={isSubmitting}>{isSubmitting ? '...' : '✓'}</button>
-                  )}
-                  {hasSubmitted && (
-                    <div className="px-4 bg-green-500/20 text-green-500 border border-green-500/40 flex items-center font-black">SAVED</div>
-                  )}
+                  {playerName.trim() && !hasSubmitted && <button data-hand-action="submit-score" onClick={() => handleHandUIAction('submit-score')} className={`px-4 bg-white text-black font-black transition-all ${isSubmitting ? 'opacity-50' : 'hover:scale-105'}`} disabled={isSubmitting}>{isSubmitting ? '...' : '✓'}</button>}
+                  {hasSubmitted && <div className="px-4 bg-green-500/20 text-green-500 border border-green-500/40 flex items-center font-black">SAVED</div>}
                 </div>
               </div>
               <div className="flex flex-col gap-3">
@@ -792,9 +771,7 @@ const App: React.FC = () => {
         )}
       </div>
       <div id="camera-container" className={`${shootStyle === 'tap' ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="camera-inner pointer-events-none">
-          <video ref={videoRef} id="camera-feed" playsInline muted className={!cameraAllowed ? 'hidden' : 'block'} />
-        </div>
+        <div className="camera-inner pointer-events-none"><video ref={videoRef} id="camera-feed" playsInline muted className={!cameraAllowed ? 'hidden' : 'block'} /></div>
       </div>
     </div>
   );
