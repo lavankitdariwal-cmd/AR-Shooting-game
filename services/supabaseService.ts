@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://lcsqgjfcdutgwbqjxhky.supabase.co';
@@ -15,40 +14,53 @@ export interface LeaderboardEntry {
   control_mode: string;
 }
 
+/**
+ * Fetches top scores from the Supabase 'leaderboard' table.
+ */
 export const fetchLeaderboard = async (): Promise<LeaderboardEntry[]> => {
   try {
     const { data, error } = await supabase
       .from('leaderboard')
       .select('*')
       .order('score', { ascending: false })
-      .limit(10);
+      .limit(200); // Increased limit for detailed rank analysis
 
     if (error) {
-      console.error('Error fetching leaderboard:', error);
+      console.error('Supabase Fetch Error Details:', JSON.stringify(error, null, 2));
       return [];
     }
 
     return data || [];
-  } catch (err) {
-    console.error('Supabase fetch error:', err);
+  } catch (err: any) {
+    console.error('Unexpected Leaderboard Fetch Exception:', err.message || err);
     return [];
   }
 };
 
+/**
+ * Submits a new score to the 'leaderboard' table.
+ */
 export const submitScore = async (entry: LeaderboardEntry): Promise<boolean> => {
   try {
+    const payload = {
+      player_name: entry.player_name || 'RECON_UNIT',
+      score: entry.score,
+      difficulty: entry.difficulty,
+      control_mode: entry.control_mode
+    };
+
     const { error } = await supabase
       .from('leaderboard')
-      .insert([entry]);
+      .insert([payload]);
 
     if (error) {
-      console.error('Error submitting score:', error);
+      console.error('Supabase Submit Error Details:', JSON.stringify(error, null, 2));
       return false;
     }
 
     return true;
-  } catch (err) {
-    console.error('Supabase submit error:', err);
+  } catch (err: any) {
+    console.error('Unexpected Leaderboard Submit Exception:', err.message || err);
     return false;
   }
 };

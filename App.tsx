@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Game from './components/Game';
 import { SoundSynth } from './services/soundService';
-import { HandCursor, PinchTrigger, Difficulty, ControlMode } from './types';
+import { HandCursor, PinchTrigger, Difficulty, ControlMode, ShootStyle } from './types';
 import { fetchLeaderboard, submitScore, LeaderboardEntry } from './services/supabaseService';
 
 const TargetIllustration: React.FC = () => {
@@ -45,35 +44,64 @@ const TargetIllustration: React.FC = () => {
     };
   }, []);
 
-  return <div ref={containerRef} className="pointer-events-none" />;
+  return <div ref={containerRef} className="pointer-events-none origin-center" />;
 };
 
-const GestureIllustration: React.FC<{ style: 'pinch' | 'gun' }> = ({ style }) => {
+const GestureIllustration: React.FC<{ style: ShootStyle; isMouse: boolean }> = ({ style, isMouse }) => {
+  if (style === 'tap') {
+    const imgUrl = isMouse 
+      ? "https://res.cloudinary.com/dumwsdo42/image/upload/v1767881454/2_gimhen.png"
+      : "https://res.cloudinary.com/dumwsdo42/image/upload/v1767881455/1_dg6lzf.png";
+    
+    return (
+      <div className="flex flex-col items-center justify-center pointer-events-none transition-all duration-300 w-[min(550px,75vw)] h-auto">
+        <img 
+          src={imgUrl} 
+          alt={`${isMouse ? 'Click' : 'Tap'} Tutorial`} 
+          className="w-full h-full object-contain opacity-100 drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]"
+        />
+        <div className="text-white font-black uppercase tracking-[0.2em] text-[10px] md:text-lg mt-2 text-center whitespace-nowrap drop-shadow-lg">
+          {isMouse ? 'CLICK' : 'TAP'} ON TARGETS TO ELIMINATE
+        </div>
+      </div>
+    );
+  }
+
   const imgUrl = style === 'pinch' 
     ? "https://res.cloudinary.com/dumwsdo42/image/upload/v1767719161/Frame_13_nptunk.png"
     : "https://res.cloudinary.com/dumwsdo42/image/upload/v1767719163/Frame_14_mbxzv7.png";
 
   return (
-    <div className="flex flex-col items-center justify-center pointer-events-none p-4 transition-all duration-300 w-[min(550px,75vw)] h-auto aspect-square">
+    <div className="flex flex-col items-center justify-center pointer-events-none transition-all duration-300 w-[min(550px,75vw)] h-auto">
       <img 
         src={imgUrl} 
         alt={`${style === 'pinch' ? 'Pinch' : 'Gun Sign'} Tutorial`} 
         className="w-full h-full object-contain opacity-100 drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]"
       />
       <div className="text-white font-black uppercase tracking-[0.2em] text-[10px] md:text-lg mt-2 text-center whitespace-nowrap drop-shadow-lg">
-        Do this gesture to shoot or click
+        DO THIS GESTURE TO SHOOT OR {isMouse ? 'CLICK' : 'TAP'}
       </div>
     </div>
   );
 };
 
-const TutorialOverlay: React.FC<{ onClose: (finishedAll: boolean) => void, onNav: () => void }> = ({ onClose, onNav }) => {
+const TutorialOverlay: React.FC<{ onClose: (finishedAll: boolean) => void, onNav: () => void, currentStyle: ShootStyle, isMouse: boolean }> = ({ onClose, onNav, currentStyle, isMouse }) => {
   const [step, setStep] = useState(0);
   const steps = [
-    { title: "Navigation", desc: "Move your hand in front of the camera to control the crosshair. The UI will highlight when you hover over it." },
-    { title: "Selection & Firing", desc: "Use your chosen Gesture (Pinch or Gun Sign) to click UI buttons and shoot targets in-game." },
-    { title: "Combat Mechanics", desc: "Targets move toward you. Destroy them before they reach the integrity threshold. High combos trigger slow-motion." },
-    { title: "Emergency Pause", desc: "Hold an Open Palm for 2 seconds to pause the engagement at any time." }
+    { 
+      title: "NAVIGATION", 
+      desc: currentStyle === 'tap' 
+        ? `UI ELEMENTS CAN BE INTERACTED WITH VIA TRADITIONAL ${isMouse ? 'CLICK' : 'TAP'} INPUTS.`
+        : "MOVE YOUR HAND IN FRONT OF THE CAMERA TO CONTROL THE CROSSHAIR. THE UI WILL HIGHLIGHT WHEN YOU HOVER OVER IT." 
+    },
+    { 
+      title: "SELECTION & FIRING", 
+      desc: currentStyle === 'tap'
+        ? `DIRECTLY ${isMouse ? 'CLICK' : 'TAP'} ON SCREEN TARGETS TO DESTROY THEM. NO CAMERA IS REQUIRED FOR THIS MODE.`
+        : `USE YOUR CHOSEN GESTURE (PINCH OR GUN SIGN) TO ${isMouse ? 'CLICK' : 'TAP'} UI BUTTONS AND SHOOT TARGETS IN-GAME.` 
+    },
+    { title: "COMBAT MECHANICS", desc: "TARGETS MOVE TOWARD YOU. DESTROY THEM BEFORE THEY REACH THE INTEGRITY THRESHOLD. HIGH COMBOS TRIGGER SLOW-MOTION." },
+    { title: "EMERGENCY PAUSE", desc: currentStyle === 'tap' ? "USE THE PAUSE BUTTON OR ESCAPE TO PAUSE THE ENGAGEMENT." : "HOLD AN OPEN PALM FOR 2 SECONDS TO PAUSE THE ENGAGEMENT AT ANY TIME." }
   ];
   const next = () => { onNav(); setStep(step + 1); };
   const prev = () => { onNav(); setStep(step - 1); };
@@ -81,20 +109,20 @@ const TutorialOverlay: React.FC<{ onClose: (finishedAll: boolean) => void, onNav
   return (
     <div className="absolute inset-0 bg-black/95 z-[150] flex items-center justify-center p-8 backdrop-blur-xl">
       <div className="glass-ui edge-glow p-6 md:p-12 max-w-xl w-full text-center">
-        <div className="text-[10px] uppercase text-white/40 mb-2 font-black tracking-widest">Tutorial Mode</div>
+        <div className="text-[10px] uppercase text-white/40 mb-2 font-black tracking-widest">TUTORIAL MODE</div>
         <h2 className="text-2xl md:text-3xl font-black uppercase tracking-widest mb-6">{steps[step].title}</h2>
         <div className="mb-8 min-h-[80px]">
           <p className="text-white/70 text-sm md:text-base leading-relaxed">{steps[step].desc}</p>
         </div>
         <div className="flex justify-between items-center mt-6 md:mt-10">
-          <button data-hand-action="tut-prev" onClick={() => step > 0 ? prev() : null} className={`text-[10px] md:text-xs font-black uppercase tracking-widest ${step === 0 ? 'opacity-0 pointer-events-none' : 'text-white/40 hover:text-white'}`}>Prev</button>
+          <button data-hand-action="tut-prev" onClick={() => step > 0 ? prev() : null} className={`text-[10px] md:text-xs font-black uppercase tracking-widest ${step === 0 ? 'opacity-0 pointer-events-none' : 'text-white/40 hover:text-white'}`}>PREV</button>
           <div className="flex gap-2">
             {steps.map((_, i) => <div key={i} className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-none rotate-45 ${i === step ? 'bg-white' : 'bg-white/10'}`} />)}
           </div>
           {step < steps.length - 1 ? (
-            <button data-hand-action="tut-next" onClick={() => next()} className="text-[10px] md:text-xs font-black uppercase tracking-widest text-white hover:text-white/70">Next</button>
+            <button data-hand-action="tut-next" onClick={() => next()} className="text-[10px] md:text-xs font-black uppercase tracking-widest text-white hover:text-white/70">NEXT</button>
           ) : (
-            <button data-hand-action="tut-finish" onClick={() => { onNav(); onClose(true); }} className="text-[10px] md:text-xs font-black uppercase tracking-widest text-white border-b border-white hover:border-transparent transition-all">Finish</button>
+            <button data-hand-action="tut-finish" onClick={() => { onNav(); onClose(true); }} className="text-[10px] md:text-xs font-black uppercase tracking-widest text-white border-b border-white hover:border-transparent transition-all">FINISH</button>
           )}
         </div>
       </div>
@@ -102,7 +130,7 @@ const TutorialOverlay: React.FC<{ onClose: (finishedAll: boolean) => void, onNav
   );
 };
 
-const LeaderboardModal: React.FC<{ onClose: () => void, onAction: () => void }> = ({ onClose, onAction }) => {
+const LeaderboardModal: React.FC<{ onClose: () => void, onAction: () => void, currentUserScore?: number, currentUserName?: string }> = ({ onClose, onAction, currentUserScore, currentUserName }) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -115,31 +143,82 @@ const LeaderboardModal: React.FC<{ onClose: () => void, onAction: () => void }> 
     load();
   }, []);
 
+  const formatEliteName = (name: string) => {
+    return name.replace(/[_-]?\d+$/, '').trim();
+  };
+
+  // Find user rank robustly
+  let userRank = -1;
+  if (currentUserScore !== undefined && currentUserName !== undefined) {
+    // Attempt exact match
+    userRank = entries.findIndex(e => e.player_name === currentUserName && e.score === currentUserScore) + 1;
+    // Fallback rank calculation based on score if exact entry is not found (due to sync lag)
+    if (userRank <= 0) {
+      userRank = entries.findIndex(e => currentUserScore >= e.score) + 1;
+      if (userRank === 0) userRank = entries.length + 1;
+    }
+  }
+
+  const isUserInTop7 = userRank > 0 && userRank <= 7;
+  const top7 = entries.slice(0, 7);
+
   return (
     <div className="absolute inset-0 bg-black/90 z-[100] flex items-center justify-center p-8 backdrop-blur-md">
       <div className="glass-ui edge-glow p-8 md:p-10 max-w-lg w-full">
         <div className="flex justify-between items-center mb-8 md:mb-10 border-b border-white/10 pb-4">
-          <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest">Global Leadership</h2>
-          <button data-hand-action="close-board" onClick={() => { onAction(); onClose(); }} className="text-white/40 hover:text-white uppercase text-[10px] md:text-xs font-bold">Close</button>
+          <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest">ELITE VANGUARD</h2>
+          <button data-hand-action="close-board" onClick={() => { onAction(); onClose(); }} className="text-white/40 hover:text-white uppercase text-[10px] md:text-xs font-bold">CLOSE</button>
         </div>
-        <div className="flex flex-col gap-4 md:gap-6 max-h-[60vh] overflow-y-auto">
+        <div className="flex flex-col gap-4 md:gap-5 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
           {loading ? (
-            <div className="text-center py-10 text-white/20 animate-pulse font-black uppercase tracking-widest">Syncing Data...</div>
-          ) : entries.length === 0 ? (
-            <div className="text-center py-10 text-white/20 font-black uppercase tracking-widest">No Records Found</div>
+            <div className="text-center py-10 text-white/20 animate-pulse font-black uppercase tracking-widest">SYNCING DATA...</div>
           ) : (
-            entries.map((d, i) => (
-              <div key={i} className="flex justify-between items-center border-b border-white/5 pb-2">
-                <div>
-                  <div className="text-[10px] text-white/40 mb-1">UNIT_{i+1}</div>
-                  <div className="font-bold text-sm md:text-base">{d.player_name}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg md:text-xl font-black text-white">{d.score.toLocaleString()}</div>
-                  <div className="text-[9px] md:text-[10px] uppercase text-white/30">{d.difficulty} / {d.control_mode === 'one-hand' ? '1H' : '2H'}</div>
-                </div>
+            <>
+              <div className="flex flex-col gap-2">
+                {top7.map((d, i) => {
+                  const isCurrent = (userRank === i + 1);
+                  return (
+                    <div key={i} className={`flex justify-between items-center border-b border-white/5 pb-2 px-1 transition-all ${isCurrent ? 'bg-white/10' : ''}`}>
+                      <div className="flex items-center gap-4">
+                        <span className={`text-sm md:text-lg font-black w-8 ${i < 3 ? 'text-white' : 'text-white/30'}`}>#{i + 1}</span>
+                        <div>
+                          <div className="font-bold text-xs md:text-base uppercase tracking-widest truncate max-w-[140px] md:max-w-[220px]">
+                            {formatEliteName(d.player_name)}
+                          </div>
+                          <div className="text-[8px] md:text-[9px] uppercase text-white/30 tracking-tighter">{d.difficulty} / {d.control_mode === 'one-hand' ? '1H' : '2H'}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm md:text-lg font-black text-white/90">{d.score.toLocaleString()}</div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))
+
+              {/* Always show current user's performance at bottom if not in top 7 and they have submitted */}
+              {!isUserInTop7 && userRank > 0 && currentUserScore !== undefined && (
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <div className="text-center text-[10px] text-white/10 mb-4 tracking-[0.8em]">YOUR PERFORMANCE RECORD</div>
+                  <div className="flex justify-between items-center bg-white/5 border border-white/20 p-4">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm md:text-lg font-black w-8 text-white/30">#{userRank}</span>
+                      <div>
+                        <div className="font-bold text-xs md:text-base uppercase tracking-widest text-white">{currentUserName} (YOU)</div>
+                        <div className="text-[8px] md:text-[10px] uppercase text-white/30">OPERATOR VERIFIED</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm md:text-lg font-black text-white">{currentUserScore.toLocaleString()}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {entries.length === 0 && !loading && (
+                <div className="text-center py-10 text-white/20 font-black uppercase tracking-widest">NO RECORDS FOUND</div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -155,7 +234,7 @@ const App: React.FC = () => {
   const [lives, setLives] = useState(3);
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [controlMode, setControlMode] = useState<ControlMode>('one-hand');
-  const [shootStyle, setShootStyle] = useState<'pinch' | 'gun'>('pinch');
+  const [shootStyle, setShootStyle] = useState<ShootStyle>('pinch');
   const [cameraAllowed, setCameraAllowed] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [handCursors, setHandCursors] = useState<HandCursor[]>([]);
@@ -166,8 +245,13 @@ const App: React.FC = () => {
   const [showTutorial, setShowTutorial] = useState(false);
   const [handClickEnabled, setHandClickEnabled] = useState(true);
   const [bgmEnabled, setBgmEnabled] = useState(true);
-  const [playerName, setPlayerName] = useState('RECON_UNIT');
+  const [playerName, setPlayerName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isMouse, setIsMouse] = useState(false);
+  
+  // Ranking context for gameover screen
+  const [rankInfo, setRankInfo] = useState<{ rank: number, pointsToTarget: number, targetRank: number } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const handsRef = useRef<any>(null);
@@ -188,7 +272,17 @@ const App: React.FC = () => {
 
   const handleActionRef = useRef<any>(null);
 
-  // Initialization: Load music and setup global click for audio unlock
+  // Detect mouse/touch
+  useEffect(() => {
+    const checkMouse = () => {
+      // Logic to determine if user has a mouse or touch-only device
+      setIsMouse(window.matchMedia('(pointer: fine)').matches);
+    };
+    checkMouse();
+    window.addEventListener('resize', checkMouse);
+    return () => window.removeEventListener('resize', checkMouse);
+  }, []);
+
   useEffect(() => {
     if (!synthRef.current) {
       synthRef.current = new SoundSynth();
@@ -198,11 +292,7 @@ const App: React.FC = () => {
       Promise.all([
         synthRef.current.loadMenuBGM(menuMusicUrl),
         synthRef.current.loadGameBGM(gameMusicUrl)
-      ]).then(() => {
-        if ((gameStateRef.current === 'menu' || gameStateRef.current === 'starting') && synthRef.current && bgmEnabledRef.current) {
-          synthRef.current.startMenuBGM();
-        }
-      });
+      ]);
     }
 
     const unlockAudio = () => {
@@ -223,22 +313,17 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Music state manager: Single source of truth for background music switching
   useEffect(() => {
     const prev = prevGameStateRef.current;
     gameStateRef.current = gameState;
     bgmEnabledRef.current = bgmEnabled;
-    
     if (!synthRef.current) return;
-
     if (!bgmEnabled) { 
         synthRef.current.stopBGM(); 
         prevGameStateRef.current = gameState;
         return; 
     }
-
     if (gameState === 'menu' || gameState === 'starting') {
-        // Restart only when returning from playing area (any game state)
         const returnedFromGame = prev !== 'menu' && prev !== 'starting';
         synthRef.current.startMenuBGM(returnedFromGame);
     } else {
@@ -267,6 +352,32 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, [gameState, countdown]);
 
+  // Rank calculation for Game Over screen
+  useEffect(() => {
+    if (gameState === 'gameover') {
+      const calculateRank = async () => {
+        const entries = await fetchLeaderboard();
+        // Determine rank if user were in the list with current score
+        let currentRank = entries.findIndex(e => score >= e.score) + 1;
+        if (currentRank === 0) currentRank = entries.length + 1;
+        
+        let targetRank = Math.max(1, currentRank - 5);
+        // Special case: if target is the same as current (e.g. rank 1), find rank 1's score anyway
+        let targetScore = entries[targetRank - 1]?.score || 0;
+        
+        if (currentRank <= 5) targetRank = 1;
+        
+        let pointsToTarget = Math.max(0, targetScore - score);
+        if (currentRank === 1) pointsToTarget = 0; // Top of the list
+
+        setRankInfo({ rank: currentRank, pointsToTarget, targetRank });
+      };
+      calculateRank();
+    } else {
+      setRankInfo(null);
+    }
+  }, [gameState, score]);
+
   const handleHandUIAction = useCallback((action: string, value?: string) => {
     if ((gameStateRef.current === 'playing' || gameStateRef.current === 'starting') && 
         action !== 'pause-game' && action !== 'resume-game' && action !== 'quit-game' && action !== 'show-tutorial') return;
@@ -274,8 +385,8 @@ const App: React.FC = () => {
     switch (action) {
       case 'set-difficulty': if (value) setDifficulty(value as Difficulty); break;
       case 'set-mode': if (value) setControlMode(value as ControlMode); break;
-      case 'set-style': if (value) setShootStyle(value as 'pinch' | 'gun'); break;
-      case 'start-game': setScore(0); setCombo(0); setLives(3); setCountdown(8); setGameState('starting'); if (synthRef.current) synthRef.current.playStart(); break;
+      case 'set-style': if (value) setShootStyle(value as ShootStyle); break;
+      case 'start-game': setScore(0); setCombo(0); setLives(3); setCountdown(8); setGameState('starting'); setHasSubmitted(false); setPlayerName(''); if (synthRef.current) synthRef.current.playStart(); break;
       case 'show-tutorial': setShowTutorial(true); break;
       case 'show-leaderboard': setShowLeaderboard(true); break;
       case 'visit-linkedin': window.open('https://linkedin.com/in/lavankit-dariwal-3baa39242', '_blank'); break;
@@ -283,10 +394,11 @@ const App: React.FC = () => {
       case 'pause-game': setGameState('paused'); break;
       case 'resume-game': setGameState('playing'); break;
       case 'quit-game': setGameState('menu'); break;
-      case 'restart': setScore(0); setCombo(0); setLives(3); setCountdown(8); setGameState('starting'); if (synthRef.current) synthRef.current.playStart(); break;
+      case 'restart': setScore(0); setCombo(0); setLives(3); setCountdown(8); setGameState('starting'); setHasSubmitted(false); setPlayerName(''); if (synthRef.current) synthRef.current.playStart(); break;
       case 'toggle-bgm': setBgmEnabled(!bgmEnabled); break;
+      case 'submit-score': handleSaveScore(); break;
     }
-  }, [bgmEnabled]);
+  }, [bgmEnabled, playerName, score, difficulty, controlMode]);
 
   useEffect(() => { handleActionRef.current = handleHandUIAction; }, [handleHandUIAction]);
 
@@ -308,6 +420,9 @@ const App: React.FC = () => {
       const hands = new w.Hands({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
       hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.75, minTrackingConfidence: 0.75 });
       hands.onResults((results: any) => {
+        // Only process results if not in Tap mode
+        if (shootStyleRef.current === 'tap') return;
+
         const newCursors: HandCursor[] = [];
         const newTriggers: PinchTrigger[] = [];
         document.querySelectorAll('.hand-hover').forEach(el => el.classList.remove('hand-hover'));
@@ -369,183 +484,286 @@ const App: React.FC = () => {
         setHandCursors(newCursors); setPinchTriggers(newTriggers);
       });
       handsRef.current = hands;
-      const camera = new w.Camera(videoRef.current, { onFrame: async () => { if (handsRef.current && videoRef.current && videoRef.current.readyState >= 2) try { await handsRef.current.send({ image: videoRef.current }); } catch (err) {} }, width: 1280, height: 720 });
-      cameraUtilRef.current = camera; await camera.start(); setCameraAllowed(true);
+      const camera = new w.Camera(videoRef.current, { onFrame: async () => { if (handsRef.current && videoRef.current && videoRef.current.readyState >= 2 && shootStyleRef.current !== 'tap') try { await handsRef.current.send({ image: videoRef.current }); } catch (err) {} }, width: 1280, height: 720 });
+      cameraUtilRef.current = camera;
+      if (shootStyleRef.current !== 'tap') {
+        await camera.start(); setCameraAllowed(true);
+      }
     } catch (e: any) { setCameraError("Initialization failed. Please reload."); }
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => initCamera(), 1200);
-    return () => {
-      clearTimeout(timer);
+    if (shootStyle === 'tap') {
       if (cameraUtilRef.current) try { cameraUtilRef.current.stop(); } catch(e) {}
-      if (handsRef.current) try { handsRef.current.close(); } catch(e) {}
-    };
-  }, [initCamera]);
+      setCameraAllowed(false);
+      setHandCursors([]);
+    } else {
+      const timer = setTimeout(() => initCamera(), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [initCamera, shootStyle]);
 
   const handleScore = useCallback(() => setCombo(prev => { const newCombo = prev + 1; setScore(s => s + Math.floor(100 * (1 + (newCombo * 0.15)))); return newCombo; }), []);
   const handleMiss = useCallback(() => { setCombo(0); setShowFlicker(true); setTimeout(() => setShowFlicker(false), 400); setLives(prev => { if (prev <= 1) setGameState('gameover'); return prev - 1; }); }, []);
 
   const handleSaveScore = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || !playerName.trim() || hasSubmitted) return;
     setIsSubmitting(true);
+    const sanitizedName = playerName.trim();
     const success = await submitScore({
-      player_name: playerName || 'RECON_UNIT',
+      player_name: sanitizedName,
       score: score,
       difficulty: difficulty,
       control_mode: controlMode
     });
-    if (success) { setGameState('menu'); setShowLeaderboard(true); }
+    if (success) { 
+      setHasSubmitted(true);
+      if (synthRef.current) synthRef.current.playClick();
+      setShowLeaderboard(true);
+    }
     setIsSubmitting(false);
   };
 
   if (!isSecure) return <div className="w-full h-full bg-black flex items-center justify-center p-10 text-center"><h1 className="text-4xl font-black mb-6 text-red-500 uppercase">Secure Context Required</h1></div>;
 
   return (
-    <div className="w-full h-full relative text-white overflow-hidden bg-black font-['Orbitron']">
+    <div className="w-full h-[100dvh] relative text-white overflow-hidden bg-black font-['Orbitron'] touch-none">
       {showFlicker && <div className="absolute inset-0 z-[100] bg-red-600/30 pointer-events-none animate-flicker" />}
       {cameraError && (
         <div className="absolute inset-0 bg-black/98 z-[200] flex items-center justify-center p-10 backdrop-blur-3xl">
           <div className="glass-ui edge-glow p-10 md:p-14 max-w-xl w-full text-center">
             <div className="w-16 h-16 border border-red-500 flex items-center justify-center mx-auto mb-8 rotate-45"><span className="text-red-500 font-black text-2xl -rotate-45">!</span></div>
-            <h2 className="text-2xl md:text-3xl font-black uppercase mb-6 text-white">Signal Failure</h2>
-            <p className="text-white/50 text-xs md:text-sm mb-12">{cameraError}</p>
-            <button onClick={() => window.location.reload()} className="px-12 py-5 bg-white text-black font-black uppercase text-xs">Reload Feed</button>
+            <h2 className="text-2xl md:text-3xl font-black uppercase mb-6 text-white">SIGNAL FAILURE</h2>
+            <p className="text-white/50 text-xs md:text-sm mb-12 uppercase">{cameraError}</p>
+            <button onClick={() => window.location.reload()} className="px-12 py-5 bg-white text-black font-black uppercase text-xs">RELOAD FEED</button>
           </div>
         </div>
       )}
-      {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} onAction={() => handleHandUIAction('close-board')} />}
-      {showTutorial && <TutorialOverlay onClose={(fin) => { if (fin) localStorage.setItem('void_recon_tutorial_v1', 'true'); setShowTutorial(false); }} onNav={() => synthRef.current?.playMenuMove()} />}
+      {showLeaderboard && (
+        <LeaderboardModal 
+          onClose={() => setShowLeaderboard(false)} 
+          onAction={() => handleHandUIAction('close-board')} 
+          currentUserScore={hasSubmitted ? score : undefined}
+          currentUserName={hasSubmitted ? playerName : undefined}
+        />
+      )}
+      {showTutorial && <TutorialOverlay onClose={(fin) => { if (fin) localStorage.setItem('void_recon_tutorial_v1', 'true'); setShowTutorial(false); }} onNav={() => synthRef.current?.playMenuMove()} currentStyle={shootStyle} isMouse={isMouse} />}
       {handCursors.map(cursor => <div key={cursor.id} className={`hand-cursor ${cursor.pinched ? 'pinched' : ''} style-${shootStyle}`} style={{ left: cursor.x + '%', top: cursor.y + '%' }} />)}
       {(gameState === 'playing' || gameState === 'paused') && <Game isActive={gameState === 'playing'} onScore={handleScore} onMiss={handleMiss} onGameOver={() => setGameState('gameover')} externalTriggers={pinchTriggers} difficulty={difficulty} controlMode={controlMode} combo={combo} />}
       
-      <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-8 z-20">
-        {/* Top HUD Section */}
-        <div className="w-full">
+      <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 sm:p-6 md:p-8 z-20 h-full w-full">
+        <div className="w-full flex-shrink-0">
             {(gameState === 'playing' || gameState === 'paused') && (
                 <div className="w-full flex justify-between items-start">
-                    <div className="glass-ui px-4 py-3 md:px-8 md:py-5 min-w-[120px] md:min-w-[180px]">
-                        <div className="text-[8px] md:text-[10px] uppercase text-white/40 mb-1 font-black">Integrity</div>
-                        <div className="text-xl md:text-4xl font-black">{score.toLocaleString()}</div>
-                        {combo > 1 && <div className="text-white/60 text-[8px] md:text-xs font-bold mt-1">x{combo} Combo</div>}
+                    <div className="glass-ui px-4 py-3 md:px-8 md:py-5 min-w-[110px] md:min-w-[180px]">
+                        <div className="text-[8px] md:text-[10px] uppercase text-white/40 mb-1 font-black">INTEGRITY</div>
+                        <div className="text-lg md:text-4xl font-black">{score.toLocaleString()}</div>
+                        {combo > 1 && <div className="text-white/60 text-[8px] md:text-xs font-bold mt-1">x{combo} COMBO</div>}
                     </div>
-                    <div className="flex gap-2 md:gap-4">{[0, 1, 2].map((i) => <div key={i} className={`w-2.5 h-2.5 md:w-4 md:h-4 rounded-none rotate-45 transition-all duration-500 ${i < lives ? 'bg-white shadow-[0_0_15px_white]' : 'bg-white/10 scale-50 opacity-20'}`} />)}</div>
+                    
+                    <div className="flex flex-col items-end gap-2 md:gap-3">
+                      <div className="flex gap-4 md:gap-6 items-center">
+                        {gameState === 'playing' && shootStyle === 'tap' && (
+                          <button 
+                            data-hand-action="pause-game"
+                            onClick={() => handleHandUIAction('pause-game')}
+                            className="pointer-events-auto bg-white/10 p-2 border border-white/20 hover:bg-white/20 transition-all"
+                            aria-label="Pause Game"
+                          >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                              <rect x="6" y="4" width="4" height="16" />
+                              <rect x="14" y="4" width="4" height="16" />
+                            </svg>
+                          </button>
+                        )}
+                        <div className="flex gap-2 md:gap-4">
+                          {[0, 1, 2].map((i) => (
+                            <div key={i} className={`w-2.5 h-2.5 md:w-4 md:h-4 rounded-none rotate-45 transition-all duration-500 ${i < lives ? 'bg-white shadow-[0_0_15px_white]' : 'bg-white/10 scale-50 opacity-20'}`} />
+                          ))}
+                        </div>
+                      </div>
+                      {gameState === 'playing' && shootStyle !== 'tap' && (
+                        <span className="text-[7px] md:text-[9px] uppercase text-white/40 font-black animate-pulse tracking-[0.2em] whitespace-nowrap">OPEN PALM TO PAUSE</span>
+                      )}
+                    </div>
                 </div>
             )}
         </div>
 
-        {/* Bottom HUD Section - Moved Instruction here at the bottom */}
-        <div className="w-full flex justify-center mb-10 md:mb-4">
-            {gameState === 'playing' && (
-                <div className="px-6 py-3 bg-black/60 border border-white/10 backdrop-blur-xl rounded-none shadow-[0_0_20px_rgba(255,255,255,0.05)]">
-                    <span className="text-[10px] md:text-xs uppercase text-white/60 font-black animate-pulse tracking-[0.2em]">Open Palm to Pause</span>
-                </div>
-            )}
-        </div>
+        {gameState === 'menu' && (
+          <div className="absolute inset-0 bg-black z-50 pointer-events-auto flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 edge-glow h-full w-full overflow-hidden">
+            <div className="w-full flex justify-between items-start flex-shrink-0 relative z-10 mb-4">
+              <div className="flex flex-col items-start gap-1 cursor-pointer group" data-hand-action="visit-linkedin" onClick={() => handleHandUIAction('visit-linkedin')}>
+                <span className="text-white/40 text-[7px] md:text-[8px] uppercase font-bold tracking-widest group-hover:text-white">CREATED BY</span>
+                <div className="text-white/80 group-hover:text-white underline decoration-white/20 group-hover:decoration-white font-medium uppercase text-[9px] md:text-sm">LAVANKIT DARIWAL</div>
+              </div>
+              <div className="flex gap-2">
+                <button data-hand-action="show-tutorial" onClick={() => handleHandUIAction('show-tutorial')} className="text-white/40 hover:text-white uppercase text-[8px] md:text-xs font-black border border-white/20 px-2 py-1 md:px-4 md:py-2">HOW TO PLAY</button>
+                <button data-hand-action="show-leaderboard" onClick={() => handleHandUIAction('show-leaderboard')} className="text-white/40 hover:text-white uppercase text-[8px] md:text-xs font-black border border-white/20 px-2 py-1 md:px-4 md:py-2">BOARD</button>
+              </div>
+            </div>
 
-        {/* Global Screens */}
-        {gameState === 'starting' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-[70] backdrop-blur-md p-4">
-            <GestureIllustration style={shootStyle} />
-            <div className="text-center">
-              <p className="text-white/60 text-[8px] md:text-sm uppercase font-black mb-1 md:mb-4">Prepare Engagement</p>
-              <div className="text-5xl md:text-9xl font-black">{countdown > 0 ? countdown : "GO"}</div>
+            <div className="flex flex-col items-center justify-start w-full mt-[calc(1vh+40px)] sm:mt-[calc(2vh+40px)]">
+              <div className="flex flex-col items-center gap-5 mb-[50px]">
+                <div className="h-[10vh] sm:h-[15vh] flex items-center justify-center">
+                  <div className="scale-[0.26] sm:scale-[0.36] md:scale-[0.54] origin-center">
+                    <TargetIllustration />
+                  </div>
+                </div>
+                <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white uppercase italic text-center flex-shrink-0">VOID RECON</h1>
+              </div>
+              
+              <div className="flex flex-col items-center w-full max-w-7xl flex-shrink-0 scale-[0.98] origin-top">
+                <div className="flex flex-col min-[1000px]:flex-row gap-8 min-[1000px]:gap-12 items-center">
+                  {/* Level First */}
+                  <div className="flex flex-col gap-2 md:gap-3 items-center">
+                    <span className="text-[7px] md:text-[9px] font-black uppercase text-white/40 tracking-[0.3em]">LEVEL</span>
+                    <div className="flex gap-2 sm:gap-3 md:gap-4">
+                      {(['easy', 'medium', 'hard'] as Difficulty[]).map(lvl => (
+                        <button key={lvl} data-hand-action="set-difficulty" data-hand-value={lvl} onClick={() => handleHandUIAction('set-difficulty', lvl)} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${difficulty === lvl ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>{lvl.toUpperCase()}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col min-[600px]:flex-row gap-8 min-[600px]:gap-12 items-center">
+                    {/* Shoot Style Second */}
+                    <div className="flex flex-col gap-2 md:gap-3 items-center">
+                      <span className="text-[7px] md:text-[9px] font-black uppercase text-white/40 tracking-[0.3em]">SHOOT STYLE</span>
+                      <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+                        <button data-hand-action="set-style" data-hand-value="pinch" onClick={() => handleHandUIAction('set-style', 'pinch')} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${shootStyle === 'pinch' ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>PINCH</button>
+                        <button data-hand-action="set-style" data-hand-value="gun" onClick={() => handleHandUIAction('set-style', 'gun')} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${shootStyle === 'gun' ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>GUN SIGN</button>
+                        <button data-hand-action="set-style" data-hand-value="tap" onClick={() => handleHandUIAction('set-style', 'tap')} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${shootStyle === 'tap' ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>{isMouse ? 'CLICK' : 'TAP'}</button>
+                      </div>
+                    </div>
+
+                    {/* Interaction Third (Hidden if Tap) */}
+                    {shootStyle !== 'tap' && (
+                      <div className="flex flex-col gap-2 md:gap-3 items-center">
+                        <span className="text-[7px] md:text-[9px] font-black uppercase text-white/40 tracking-[0.3em]">INTERACTION</span>
+                        <div className="flex gap-2 sm:gap-4">
+                          <button data-hand-action="set-mode" data-hand-value="one-hand" onClick={() => handleHandUIAction('set-mode', 'one-hand')} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${controlMode === 'one-hand' ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>ONE HAND</button>
+                          <button data-hand-action="set-mode" data-hand-value="two-hands" onClick={() => handleHandUIAction('set-mode', 'two-hands')} className={`px-4 sm:px-6 py-2 sm:py-3 rounded-none border-[1px] md:border-2 text-[9px] md:text-xs font-black uppercase transition-all duration-300 ${controlMode === 'two-hands' ? 'bg-white/10 text-white border-white' : 'border-white/20 text-white/50 bg-transparent'}`}>TWO HANDS</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-row gap-4 items-center mt-12 sm:mt-16">
+                  <button data-hand-action="toggle-bgm" onClick={() => handleHandUIAction('toggle-bgm')} className={`px-4 py-2 sm:px-8 sm:py-3 border border-white/20 text-[7px] md:text-[10px] font-black uppercase transition-all duration-300 ${bgmEnabled ? 'bg-white/10 text-white' : 'text-white/30 bg-transparent'}`}>{bgmEnabled ? 'MUSIC: ON' : 'MUSIC: OFF'}</button>
+                  <button onClick={() => setHandClickEnabled(!handClickEnabled)} disabled={shootStyle === 'tap'} className={`px-4 py-2 sm:px-8 sm:py-3 border border-white/20 text-[7px] md:text-[10px] font-black uppercase transition-all duration-300 ${shootStyle === 'tap' ? 'opacity-20 pointer-events-none' : ''} ${handClickEnabled ? 'bg-white/10 text-white' : 'text-white/30 bg-transparent'}`}>{handClickEnabled ? 'GESTURES: ON' : 'GESTURES: OFF'}</button>
+                </div>
+
+                <button data-hand-action="start-game" onClick={() => handleHandUIAction('start-game')} className="px-16 sm:px-28 md:px-36 py-4 sm:py-6 md:py-8 bg-white text-black font-black text-sm sm:text-lg md:text-xl rounded-none shadow-[0_0_50px_rgba(255,255,255,0.2)] uppercase italic mt-12 flex-shrink-0 active:scale-95 transition-transform">PLAY</button>
+              </div>
             </div>
           </div>
         )}
 
-        {gameState === 'menu' && (
-          <div className="absolute inset-0 bg-black z-50 pointer-events-auto flex flex-col items-center justify-center p-4 md:p-8 edge-glow">
-            <div className="absolute top-4 left-4 md:top-8 md:left-8 flex flex-col items-start gap-1 cursor-pointer group" data-hand-action="visit-linkedin" onClick={() => handleHandUIAction('visit-linkedin')}>
-              <span className="text-white/40 text-[8px] uppercase font-bold tracking-widest group-hover:text-white">Created By</span>
-              <div className="text-white/80 group-hover:text-white underline decoration-white/20 group-hover:decoration-white font-medium uppercase text-[10px] md:text-sm">Lavankit Dariwal</div>
-            </div>
-            <div className="absolute top-4 right-4 md:top-8 md:right-8 flex gap-2 md:gap-4">
-              <button data-hand-action="show-tutorial" onClick={() => handleHandUIAction('show-tutorial')} className="text-white/40 hover:text-white uppercase text-[8px] md:text-xs font-black border border-white/20 px-2 py-1 md:px-4 md:py-2">How to Play</button>
-              <button data-hand-action="show-leaderboard" onClick={() => handleHandUIAction('show-leaderboard')} className="text-white/40 hover:text-white uppercase text-[8px] md:text-xs font-black border border-white/20 px-2 py-1 md:px-4 md:py-2">Board</button>
-            </div>
-            <div className="flex flex-col items-center w-full max-w-5xl py-8 gap-10 md:gap-16">
-              <div className="flex flex-col items-center gap-2 md:gap-4">
-                <div className="h-[20vh] md:h-[200px] flex items-center justify-center"><div className="scale-[0.3] md:scale-[0.5]"><TargetIllustration /></div></div>
-                <h1 className="text-3xl md:text-6xl font-black tracking-tighter text-white uppercase italic text-center">Void Recon</h1>
+        {gameState === 'starting' && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-[70] backdrop-blur-md p-4 h-full">
+            <div className="flex flex-col items-center justify-center">
+              <GestureIllustration style={shootStyle} isMouse={isMouse} />
+              <div className="text-center mt-[20px]">
+                <p className="text-white/60 text-[8px] md:text-sm uppercase font-black mb-1 md:mb-2 tracking-widest">PREPARE ENGAGEMENT</p>
+                <div className="text-5xl md:text-9xl font-black leading-none">{countdown > 0 ? countdown : "GO"}</div>
               </div>
-              <div className="flex flex-row flex-wrap gap-10 md:gap-20 items-center justify-center">
-                <div className="flex flex-col gap-4 items-center"><span className="text-[8px] md:text-[10px] font-black uppercase text-white/40">Interaction</span>
-                  <div className="flex gap-2">
-                    <button data-hand-action="set-mode" data-hand-value="one-hand" onClick={() => handleHandUIAction('set-mode', 'one-hand')} className={`px-3 md:px-6 py-2 md:py-3 rounded-none border-2 text-[9px] md:text-xs font-black uppercase ${controlMode === 'one-hand' ? 'bg-white text-black border-white' : 'border-white/40'}`}>One Hand</button>
-                    <button data-hand-action="set-mode" data-hand-value="two-hands" onClick={() => handleHandUIAction('set-mode', 'two-hands')} className={`px-3 md:px-6 py-2 md:py-3 rounded-none border-2 text-[9px] md:text-xs font-black uppercase ${controlMode === 'two-hands' ? 'bg-white text-black border-white' : 'border-white/40'}`}>Two Hands</button>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-4 items-center"><span className="text-[8px] md:text-[10px] font-black uppercase text-white/40">Shoot Style</span>
-                  <div className="flex gap-2">
-                    <button data-hand-action="set-style" data-hand-value="pinch" onClick={() => handleHandUIAction('set-style', 'pinch')} className={`px-3 md:px-6 py-2 md:py-3 rounded-none border-2 text-[9px] md:text-xs font-black uppercase ${shootStyle === 'pinch' ? 'bg-white text-black border-white' : 'border-white/40'}`}>Pinch</button>
-                    <button data-hand-action="set-style" data-hand-value="gun" onClick={() => handleHandUIAction('set-style', 'gun')} className={`px-3 md:px-6 py-2 md:py-3 rounded-none border-2 text-[9px] md:text-xs font-black uppercase ${shootStyle === 'gun' ? 'bg-white text-black border-white' : 'border-white/40'}`}>Gun Sign</button>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-4 items-center"><span className="text-[8px] md:text-[10px] font-black uppercase text-white/40">Level</span>
-                  <div className="flex gap-2">{(['easy', 'medium', 'hard'] as Difficulty[]).map(lvl => <button key={lvl} data-hand-action="set-difficulty" data-hand-value={lvl} onClick={() => handleHandUIAction('set-difficulty', lvl)} className={`px-3 md:px-6 py-2 md:py-3 rounded-none border-2 text-[9px] md:text-xs font-black uppercase ${difficulty === lvl ? 'bg-white text-black border-white' : 'border-white/40'}`}>{lvl}</button>)}</div>
-                </div>
-              </div>
-              <div className="flex flex-row gap-6 items-center">
-                <button data-hand-action="toggle-bgm" onClick={() => handleHandUIAction('toggle-bgm')} className={`px-6 py-3 border border-white/20 text-[8px] md:text-[10px] font-black uppercase ${bgmEnabled ? 'bg-white/10' : 'text-white/30'}`}>{bgmEnabled ? 'Music: ON' : 'Music: OFF'}</button>
-                <button onClick={() => setHandClickEnabled(!handClickEnabled)} className={`px-6 py-3 border border-white/20 text-[8px] md:text-[10px] font-black uppercase ${handClickEnabled ? 'bg-white/10' : 'text-white/30'}`}>{handClickEnabled ? 'Gesture Clicks: ON' : 'Gesture Clicks: OFF'}</button>
-              </div>
-              <button data-hand-action="start-game" onClick={() => handleHandUIAction('start-game')} className="px-12 md:px-32 py-5 md:py-7 bg-white text-black font-black text-base md:text-xl rounded-none shadow-[0_0_40px_rgba(255,255,255,0.2)] uppercase italic">Play</button>
             </div>
           </div>
         )}
 
         {gameState === 'paused' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-[60] pointer-events-auto backdrop-blur-sm p-4 text-center">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-[60] pointer-events-auto backdrop-blur-sm p-4 text-center h-full">
             <div className="w-full max-w-xs md:max-w-md">
-              <h2 className="text-3xl md:text-6xl font-black mb-6 md:mb-12 uppercase italic">Paused</h2>
+              <h2 className="text-3xl md:text-6xl font-black mb-6 md:mb-12 uppercase italic">PAUSED</h2>
               <div className="flex flex-col gap-3 items-center">
-                <button data-hand-action="resume-game" onClick={() => handleHandUIAction('resume-game')} className="w-full py-4 bg-white text-black font-black uppercase text-xs md:text-base">Resume</button>
-                <button data-hand-action="show-tutorial" onClick={() => handleHandUIAction('show-tutorial')} className="w-full py-4 border-2 border-white/20 text-white font-black uppercase text-xs md:text-base">How to Play</button>
-                <button data-hand-action="quit-game" onClick={() => handleHandUIAction('quit-game')} className="w-full py-4 border-2 border-white/10 text-white/40 font-black uppercase text-xs md:text-base">Quit</button>
+                <button data-hand-action="resume-game" onClick={() => handleHandUIAction('resume-game')} className="w-full py-4 bg-white text-black font-black uppercase text-xs md:text-base">RESUME</button>
+                <button data-hand-action="show-tutorial" onClick={() => handleHandUIAction('show-tutorial')} className="w-full py-4 border-2 border-white/20 text-white font-black uppercase text-xs md:text-base">HOW TO PLAY</button>
+                <button data-hand-action="quit-game" onClick={() => handleHandUIAction('quit-game')} className="w-full py-4 border-2 border-white/10 text-white/40 font-black uppercase text-xs md:text-base">QUIT</button>
               </div>
             </div>
           </div>
         )}
 
         {gameState === 'gameover' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/95 z-[250] pointer-events-auto p-4 text-center backdrop-blur-xl">
-            <div className="w-full max-w-md glass-ui p-10 edge-glow">
-              <h2 className="text-3xl md:text-5xl font-black mb-8 uppercase italic tracking-tighter">Mission End</h2>
-              <div className="text-5xl md:text-7xl font-black mb-10">{score.toLocaleString()}</div>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/95 z-[250] pointer-events-auto p-4 text-center backdrop-blur-xl h-full overflow-y-auto">
+            <div className="w-full max-w-md glass-ui p-6 sm:p-10 edge-glow my-auto">
+              <h2 className="text-xl sm:text-4xl font-black mb-4 uppercase italic tracking-tighter">LETS TRY AGAIN</h2>
+              <div className="text-4xl sm:text-6xl font-black mb-2">{score.toLocaleString()}</div>
               
-              <div className="mb-8">
-                <div className="text-[10px] uppercase text-white/40 mb-2 font-black">Identify Operator</div>
-                <input 
-                  type="text" 
-                  value={playerName} 
-                  onChange={(e) => setPlayerName(e.target.value.toUpperCase().slice(0, 12))}
-                  className="w-full bg-white/5 border border-white/20 px-4 py-3 text-center text-white font-black tracking-widest focus:border-white focus:outline-none uppercase"
-                  placeholder="UNIT_NAME"
-                />
+              {rankInfo && (
+                <div className="mb-6 pt-4 border-t border-white/10 text-left">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[9px] uppercase font-bold text-white/40">CURRENT SECTOR RANK</span>
+                    <span className="text-lg font-black text-white">#{rankInfo.rank}</span>
+                  </div>
+                  {rankInfo.rank > 1 && (
+                    <div className="text-[10px] text-white/60 font-medium tracking-tight">
+                      <span className="text-white font-black">+{rankInfo.pointsToTarget.toLocaleString()}</span> POINTS NEEDED FOR <span className="text-white font-black italic">RANK #{rankInfo.targetRank}</span>
+                    </div>
+                  )}
+                  {rankInfo.rank === 1 && (
+                    <div className="text-[10px] text-green-400 font-black tracking-widest uppercase">ELITE OPERATOR DETECTED</div>
+                  )}
+                </div>
+              )}
+
+              <div className="mb-8 text-left">
+                <div className="text-[10px] uppercase text-white/40 mb-2 font-black tracking-widest">ENTER YOUR NAME TO SAVE SCORE.</div>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={playerName} 
+                    onChange={(e) => setPlayerName(e.target.value.toUpperCase().slice(0, 16))}
+                    className="flex-grow bg-white/5 border border-white/20 px-4 py-3 text-left text-white font-black tracking-widest focus:border-white focus:outline-none uppercase text-[11px] md:text-sm"
+                    placeholder="YOUR GAMING NAME"
+                  />
+                  {playerName.trim() && !hasSubmitted && (
+                    <button 
+                      data-hand-action="submit-score"
+                      onClick={() => handleHandUIAction('submit-score')}
+                      className={`px-4 bg-white text-black font-black transition-all ${isSubmitting ? 'opacity-50' : 'hover:scale-105'}`}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? '...' : '✓'}
+                    </button>
+                  )}
+                  {hasSubmitted && (
+                    <div className="px-4 bg-green-500/20 text-green-500 border border-green-500/40 flex items-center font-black">
+                      SAVED
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col gap-3">
                 <button 
-                  onClick={handleSaveScore} 
-                  disabled={isSubmitting}
-                  className="w-full py-4 bg-white text-black font-black uppercase text-xs hover:scale-105 disabled:opacity-50"
+                  data-hand-action="restart" 
+                  onClick={() => handleHandUIAction('restart')} 
+                  className="w-full py-4 bg-white text-black font-black uppercase text-[11px] md:text-sm hover:scale-105 transition-all"
                 >
-                  {isSubmitting ? 'Uploading...' : 'Transmit Data'}
+                  RETRY
                 </button>
                 <button 
-                  data-hand-action="restart" 
-                  onClick={() => { setGameState('starting'); setScore(0); setLives(3); }} 
-                  className="w-full py-4 border border-white/20 text-white font-black uppercase text-xs"
+                  data-hand-action="quit-game" 
+                  onClick={() => handleHandUIAction('quit-game')} 
+                  className="w-full py-4 border border-white/20 text-white font-black uppercase text-[11px] md:text-sm"
                 >
-                  Re-deploy
+                  GO TO MAIN MENU
                 </button>
               </div>
             </div>
           </div>
         )}
       </div>
-      <div id="camera-container"><div className="camera-inner"><video ref={videoRef} id="camera-feed" playsInline muted className={!cameraAllowed ? 'hidden' : 'block'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div></div>
+      
+      {shootStyle !== 'tap' && (
+        <div id="camera-container" className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-none">
+          <div className="camera-inner pointer-events-none">
+            <video ref={videoRef} id="camera-feed" playsInline muted className={!cameraAllowed ? 'hidden' : 'block'} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

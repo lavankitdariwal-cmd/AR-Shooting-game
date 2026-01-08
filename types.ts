@@ -1,4 +1,3 @@
-
 export interface Mission {
   name: string;
   objective: string;
@@ -27,6 +26,7 @@ export interface HitText {
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type ControlMode = 'one-hand' | 'two-hands';
+export type ShootStyle = 'pinch' | 'gun' | 'tap';
 
 declare global {
   interface Window {

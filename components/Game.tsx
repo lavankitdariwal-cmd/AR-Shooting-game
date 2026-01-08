@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { SoundSynth } from '../services/soundService';
 import { PinchTrigger, Difficulty, ControlMode } from '../types';
@@ -133,6 +132,14 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
       if (synthRef.current) synthRef.current.playExplosion();
       lastSpawnRef.current = Date.now();
     }
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!activeRef.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    handleFire(x, y);
   };
 
   useEffect(() => {
@@ -354,7 +361,7 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
     };
   }, [difficulty, controlMode]); 
 
-  return <div ref={containerRef} className="absolute inset-0 pointer-events-auto z-0" id="canvas-container" />;
+  return <div ref={containerRef} onPointerDown={onPointerDown} className="absolute inset-0 pointer-events-auto z-0" id="canvas-container" />;
 };
 
 export default Game;
