@@ -229,21 +229,27 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
         speedLinesGroup.add(line);
       }
 
-      let minScale = 0.6, maxScale = 1.8;
-      let minTime = 1.8, maxTime = 3.3;
+      // Difficulty Scaling: Scale, Time to Impact, and Spawn Distance
+      let minScale = 0.8, maxScale = 1.6;
+      let minTime = 2.2, maxTime = 3.8;
+      let startZBase = -80, startZRange = 50;
 
       if (difficulty === 'medium') {
-        minScale = 0.4; maxScale = 1.2;
-        minTime = 1.2; maxTime = 2.2;
+        minScale = 0.5; maxScale = 1.0;
+        // Speeds reduced by 30% from last version (last version was 1.4-2.0s)
+        minTime = 2.0; maxTime = 2.8; 
+        startZBase = -55; startZRange = 35; 
       } else if (difficulty === 'hard') {
-        minScale = 0.12; maxScale = 0.25;
-        minTime = 1.8; maxTime = 2.8; 
+        minScale = 0.15; maxScale = 0.3;
+        // Speeds reduced by 45% from last version (last version was 0.8-1.3s)
+        minTime = 1.5; maxTime = 2.4; 
+        startZBase = -40; startZRange = 25; 
       }
 
       const randomScale = minScale + Math.random() * (maxScale - minScale);
       group.scale.set(randomScale, randomScale, randomScale);
 
-      const startZ = -50 - Math.random() * 40;
+      const startZ = startZBase - Math.random() * startZRange;
       
       const vFOV = (camera.fov * Math.PI) / 180;
       const hAtZ = 2 * Math.tan(vFOV / 2) * Math.abs(startZ - camera.position.z);
