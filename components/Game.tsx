@@ -36,12 +36,14 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
   const onScoreRef = useRef(onScore);
   const onMissRef = useRef(onMiss);
   const comboRef = useRef(combo);
+  const controlModeRef = useRef(controlMode);
   const prevTriggersRef = useRef<Record<number, boolean>>({});
 
   useEffect(() => { activeRef.current = isActive; }, [isActive]);
   useEffect(() => { onScoreRef.current = onScore; }, [onScore]);
   useEffect(() => { onMissRef.current = onMiss; }, [onMiss]);
   useEffect(() => { comboRef.current = combo; }, [combo]);
+  useEffect(() => { controlModeRef.current = controlMode; }, [controlMode]);
 
   useEffect(() => {
     externalTriggers.forEach(trigger => {
@@ -125,7 +127,8 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
     });
 
     if (bestHit) {
-      if (comboRef.current > 0) {
+      // Don't slow down the speed in two hands mode
+      if (comboRef.current > 0 && controlModeRef.current !== 'two-hands') {
         slowMoEndTimeRef.current = Date.now() + SLOW_MO_DURATION;
       }
 
@@ -236,12 +239,10 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
 
       if (difficulty === 'medium') {
         minScale = 0.5; maxScale = 1.0;
-        // Speeds reduced by 30% from last version (last version was 1.4-2.0s)
         minTime = 2.0; maxTime = 2.8; 
         startZBase = -55; startZRange = 35; 
       } else if (difficulty === 'hard') {
         minScale = 0.15; maxScale = 0.3;
-        // Speeds reduced by 45% from last version (last version was 0.8-1.3s)
         minTime = 1.5; maxTime = 2.4; 
         startZBase = -40; startZRange = 25; 
       }
@@ -298,7 +299,7 @@ const Game: React.FC<GameProps> = ({ onScore, onMiss, onGameOver, isActive, exte
         const spawnDelay = (difficulty === 'easy' ? 1200 : difficulty === 'medium' ? 800 : 400);
         if (targetsRef.current.length === 0 && Date.now() - lastSpawnRef.current > spawnDelay) {
           spawnTarget();
-          if (controlMode === 'two-hands') {
+          if (controlModeRef.current === 'two-hands') {
             spawnTarget();
           }
           lastSpawnRef.current = Date.now();
