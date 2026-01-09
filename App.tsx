@@ -302,6 +302,7 @@ const App: React.FC = () => {
   const showLeaderboardRef = useRef(showLeaderboard);
 
   const cursorSmoothRefs = useRef<Record<string, {x: number, y: number}>>({});
+  const lastSteadyPosRefs = useRef<Record<string, {x: number, y: number}>>({});
   const wasPinchedRefs = useRef<Record<string, boolean>>({});
   const prevMiddleYRefs = useRef<Record<string, number>>({});
   const palmGestureTimer = useRef<number>(0);
@@ -470,14 +471,14 @@ const App: React.FC = () => {
           locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
         
-        // Initial maxNumHands calculation to fix launch issue (usually 1 for menu)
         const initialMaxHands = ((gameStateRef.current === 'playing' || gameStateRef.current === 'starting') && controlMode === 'two-hands') ? 2 : 1;
 
+        // Balanced confidence for multi-hand stability (0.88)
         hands.setOptions({ 
           maxNumHands: initialMaxHands, 
           modelComplexity: 1, 
-          minDetectionConfidence: 0.6, 
-          minTrackingConfidence: 0.6 
+          minDetectionConfidence: 0.88, 
+          minTrackingConfidence: 0.88 
         });
 
         hands.onResults((results: any) => {
@@ -506,7 +507,12 @@ const App: React.FC = () => {
             results.multiHandLandmarks.forEach((landmarks: any, index: number) => {
               const wrist = landmarks[0], thumbTip = landmarks[4], indexMcp = landmarks[5], indexTip = landmarks[8], middleTip = landmarks[12], ringTip = landmarks[16], pinkyTip = landmarks[20];
               const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
-              const handScale = dist(indexMcp, wrist), pinchDistance = dist(thumbTip, indexTip), key = results.multiHandedness?.[index]?.label || `hand-${index}`;
+              const handScale = dist(indexMcp, wrist), pinchDistance = dist(thumbTip, indexTip);
+              
+              // Use handedness label for unique persistent tracking key
+              const handLabel = results.multiHandedness?.[index]?.label || 'Unknown';
+              const key = `${handLabel}-${index}`;
+              
               let isActionActive = false, trackingTarget = indexTip;
               
               if (currentStyle === 'pinch' || currentStyle === 'tap') {
@@ -517,10 +523,18 @@ const App: React.FC = () => {
                 isActionActive = isPinched;
               } else if (currentStyle === 'gun') {
                 trackingTarget = indexTip;
-                const isIndexExtended = dist(indexTip, wrist) > handScale * 1.7, isRingCurled = dist(ringTip, wrist) < handScale * 1.1, isPinkyCurled = dist(pinkyTip, wrist) < handScale * 1.0, isGunPose = isIndexExtended && isRingCurled && isPinkyCurled;
-                const currentMiddleY = middleTip.y, prevMiddleY = prevMiddleYRefs.current[key] || currentMiddleY, middleVelocityY = currentMiddleY - prevMiddleY; 
+                const isIndexExtended = dist(indexTip, wrist) > handScale * 1.7;
+                const isRingCurled = dist(ringTip, wrist) < handScale * 1.1;
+                const isPinkyCurled = dist(pinkyTip, wrist) < handScale * 1.0;
+                const isGunPose = isIndexExtended && isRingCurled && isPinkyCurled;
+                
+                const currentMiddleY = middleTip.y;
+                const prevMiddleY = prevMiddleYRefs.current[key] || currentMiddleY;
+                const middleVelocityY = currentMiddleY - prevMiddleY; 
                 prevMiddleYRefs.current[key] = currentMiddleY;
-                isActionActive = isGunPose && (middleVelocityY < -0.025);
+                
+                // Trigger fire on rapid middle finger recoil/curl
+                isActionActive = isGunPose && (Math.abs(middleVelocityY) > 0.02);
               }
 
               const actionJustStarted = !wasPinchedRefs.current[key] && isActionActive;
@@ -536,23 +550,48 @@ const App: React.FC = () => {
                   }
               } else palmGestureTimer.current = 0;
 
-              const clampedX = Math.max(0.05, Math.min(0.95, trackingTarget.x));
-              const clampedY = Math.max(0.05, Math.min(0.95, trackingTarget.y));
-              const ampX = Math.min(3.2, Math.max(1.0, 0.16 / handScale));
-              const ampY = Math.min(3.2, Math.max(1.0, 0.16 / handScale));
+              // 1.25x Zoom mapping
+              const zoomScale = 1.25;
+              const innerRange = 1 / zoomScale; 
+              const offset = (1 - innerRange) / 2; 
+
+              let zoomedX = (trackingTarget.x - offset) / innerRange;
+              let zoomedY = (trackingTarget.y - offset) / innerRange;
+
+              const clampedX = Math.max(0, Math.min(1, zoomedX));
+              const clampedY = Math.max(0, Math.min(1, zoomedY));
+
+              const ampX = Math.min(3.8, Math.max(1.0, 0.2 / handScale));
+              const ampY = Math.min(3.8, Math.max(1.0, 0.2 / handScale));
+              
               const processedX = 50 + ((1 - clampedX) * 100 - 50) * ampX;
               const processedY = 50 + (clampedY * 100 - 50) * ampY;
 
               if (!cursorSmoothRefs.current[key]) cursorSmoothRefs.current[key] = { x: processedX, y: processedY };
               const smoothRef = cursorSmoothRefs.current[key];
+              
+              // Record position BEFORE potential trigger-movement jerk
+              if (!lastSteadyPosRefs.current[key]) lastSteadyPosRefs.current[key] = { x: processedX, y: processedY };
+              
               const distFromCenter = Math.sqrt(Math.pow(trackingTarget.x - 0.5, 2) + Math.pow(trackingTarget.y - 0.5, 2));
-              const smoothingFactor = distFromCenter > 0.4 ? 0.25 : 0.45;
+              
+              // More aggressive edge damping for multi-hand stability
+              const isNearEdge = trackingTarget.x < 0.08 || trackingTarget.x > 0.92 || trackingTarget.y < 0.08 || trackingTarget.y > 0.92;
+              const smoothingFactor = isNearEdge ? 0.25 : (distFromCenter > 0.4 ? 0.4 : 0.65); 
+              
               smoothRef.x += (processedX - smoothRef.x) * smoothingFactor;
               smoothRef.y += (processedY - smoothRef.y) * smoothingFactor;
-              const screenX = Math.max(0, Math.min(100, smoothRef.x)), screenY = Math.max(0, Math.min(100, smoothRef.y));
+              
+              const screenX = Math.max(0, Math.min(100, smoothRef.x));
+              const screenY = Math.max(0, Math.min(100, smoothRef.y));
+
+              // Anchor aim position to the frame just before trigger motion
+              const hitX = (currentStyle === 'gun' && actionJustStarted) ? lastSteadyPosRefs.current[key].x : screenX;
+              const hitY = (currentStyle === 'gun' && actionJustStarted) ? lastSteadyPosRefs.current[key].y : screenY;
               
               if (currentGameState !== 'playing' && currentGameState !== 'starting') {
-                  const pxX = (screenX / 100) * window.innerWidth, pxY = (screenY / 100) * window.innerHeight;
+                  const pxX = (hitX / 100) * window.innerWidth;
+                  const pxY = (hitY / 100) * window.innerHeight;
                   for (const el of interactiveElements) {
                       const rect = el.getBoundingClientRect();
                       if (pxX >= rect.left && pxX <= rect.right && pxY >= rect.top && pxY <= rect.bottom) {
@@ -566,15 +605,18 @@ const App: React.FC = () => {
                       }
                   }
               }
+
+              // Update anchoring position for next frame
+              lastSteadyPosRefs.current[key] = { x: screenX, y: screenY };
+
               newCursors.push({ x: screenX, y: screenY, visible: true, pinched: isActionActive, id: index });
-              newTriggers.push({ x: screenX / 100, y: screenY / 100, active: isActionActive, id: index });
+              newTriggers.push({ x: hitX / 100, y: hitY / 100, active: isActionActive, id: index });
             });
           }
           setHandCursors(newCursors); setPinchTriggers(newTriggers);
         });
         handsRef.current = hands;
         
-        // Immediate option sync after ref assignment
         handsRef.current.setOptions({ maxNumHands: initialMaxHands });
 
         const camera = new w.Camera(videoRef.current, { 
